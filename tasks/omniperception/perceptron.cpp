@@ -1,12 +1,12 @@
-#include "perceptron.hpp"
+﻿#include "perceptron.hpp"
 
 #include <chrono>
 #include <memory>
 #include <thread>
 
 #include "tasks/auto_aim/yolo.hpp"
-#include "tools/exiter.hpp"
-#include "tools/logger.hpp"
+#include "tools/exiter/exiter.hpp"
+#include "tools/logger/logger.hpp"
 
 namespace omniperception
 {

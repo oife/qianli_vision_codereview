@@ -1,4 +1,4 @@
-#ifndef AUTO_AIM__MT_DETECTOR_HPP
+﻿#ifndef AUTO_AIM__MT_DETECTOR_HPP
 #define AUTO_AIM__MT_DETECTOR_HPP
 
 #include <chrono>
@@ -7,8 +7,8 @@
 #include <tuple>
 
 #include "tasks/auto_aim/yolos/yolov5.hpp"
-#include "tools/logger.hpp"
-#include "tools/thread_safe_queue.hpp"
+#include "tools/logger/logger.hpp"
+#include "tools/thread_safe_queue/thread_safe_queue.hpp"
 
 namespace auto_aim
 {

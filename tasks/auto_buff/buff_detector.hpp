@@ -1,4 +1,4 @@
-#ifndef AUTO_BUFF__TRACK_HPP
+﻿#ifndef AUTO_BUFF__TRACK_HPP
 #define AUTO_BUFF__TRACK_HPP
 
 #include <yaml-cpp/yaml.h>
@@ -7,7 +7,7 @@
 #include <optional>
 
 #include "buff_type.hpp"
-#include "tools/img_tools.hpp"
+#include "tools/img_tools/img_tools.hpp"
 #include "yolo11_buff.hpp"
 const int LOSE_MAX = 20;  // 丢失的阙值
 namespace auto_buff

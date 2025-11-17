@@ -1,12 +1,12 @@
-#include "detector.hpp"
+﻿#include "detector.hpp"
 
 #include <fmt/chrono.h>
 #include <yaml-cpp/yaml.h>
 
 #include <filesystem>
 
-#include "tools/img_tools.hpp"
-#include "tools/logger.hpp"
+#include "tools/img_tools/img_tools.hpp"
+#include "tools/logger/logger.hpp"
 
 namespace auto_aim
 {

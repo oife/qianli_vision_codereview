@@ -1,4 +1,4 @@
-#ifndef IO__SOCKETCAN_HPP
+﻿#ifndef IO__SOCKETCAN_HPP
 #define IO__SOCKETCAN_HPP
 
 #include <linux/can.h>
@@ -13,7 +13,7 @@
 #include <stdexcept>
 #include <thread>
 
-#include "tools/logger.hpp"
+#include "tools/logger/logger.hpp"
 
 using namespace std::chrono_literals;
 

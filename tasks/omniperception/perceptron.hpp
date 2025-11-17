@@ -1,4 +1,4 @@
-#ifndef OMNIPERCEPTION__PERCEPTRON_HPP
+﻿#ifndef OMNIPERCEPTION__PERCEPTRON_HPP
 #define OMNIPERCEPTION__PERCEPTRON_HPP
 
 #include <chrono>
@@ -9,8 +9,8 @@
 #include "detection.hpp"
 #include "io/usbcamera/usbcamera.hpp"
 #include "tasks/auto_aim/armor.hpp"
-#include "tools/thread_pool.hpp"
-#include "tools/thread_safe_queue.hpp"
+#include "tools/thread_pool/thread_pool.hpp"
+#include "tools/thread_safe_queue/thread_safe_queue.hpp"
 
 namespace omniperception
 {

@@ -1,4 +1,4 @@
-#ifndef BUFF__TYPE_HPP
+﻿#ifndef BUFF__TYPE_HPP
 #define BUFF__TYPE_HPP
 
 #include <algorithm>
@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-#include "tools/math_tools.hpp"
+#include "tools/math_tools/math_tools.hpp"
 namespace auto_buff
 {
 const int INF = 1000000;

@@ -1,13 +1,13 @@
-#include "io/gimbal/gimbal.hpp"
+﻿#include "io/gimbal/gimbal.hpp"
 
 #include <chrono>
 #include <opencv2/opencv.hpp>
 #include <thread>
 
-#include "tools/exiter.hpp"
-#include "tools/logger.hpp"
-#include "tools/math_tools.hpp"
-#include "tools/plotter.hpp"
+#include "tools/exiter/exiter.hpp"
+#include "tools/logger/logger.hpp"
+#include "tools/math_tools/math_tools.hpp"
+#include "tools/plotter/plotter.hpp"
 
 const std::string keys =
   "{help h usage ? | | 输出命令行参数说明}"

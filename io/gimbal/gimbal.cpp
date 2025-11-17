@@ -1,9 +1,9 @@
-#include "gimbal.hpp"
+﻿#include "gimbal.hpp"
 
-#include "tools/crc.hpp"
-#include "tools/logger.hpp"
-#include "tools/math_tools.hpp"
-#include "tools/yaml.hpp"
+#include "tools/crc/crc.hpp"
+#include "tools/logger/logger.hpp"
+#include "tools/math_tools/math_tools.hpp"
+#include "tools/yaml/yaml.hpp"
 
 namespace io
 {

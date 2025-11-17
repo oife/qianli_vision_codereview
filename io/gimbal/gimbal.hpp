@@ -1,4 +1,4 @@
-#ifndef IO__GIMBAL_HPP
+﻿#ifndef IO__GIMBAL_HPP
 #define IO__GIMBAL_HPP
 
 #include <Eigen/Geometry>
@@ -10,7 +10,7 @@
 #include <tuple>
 
 #include "serial/serial.h"
-#include "tools/thread_safe_queue.hpp"
+#include "tools/thread_safe_queue/thread_safe_queue.hpp"
 
 namespace io
 {

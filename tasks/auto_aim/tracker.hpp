@@ -1,4 +1,4 @@
-#ifndef AUTO_AIM__TRACKER_HPP
+﻿#ifndef AUTO_AIM__TRACKER_HPP
 #define AUTO_AIM__TRACKER_HPP
 
 #include <Eigen/Dense>
@@ -10,7 +10,7 @@
 #include "solver.hpp"
 #include "target.hpp"
 #include "tasks/omniperception/perceptron.hpp"
-#include "tools/thread_safe_queue.hpp"
+#include "tools/thread_safe_queue/thread_safe_queue.hpp"
 
 namespace auto_aim
 {

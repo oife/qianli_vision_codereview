@@ -6,7 +6,7 @@
 #include <opencv2/opencv.hpp>
 #include <openvino/openvino.hpp>
 
-#include "tools/logger.hpp"
+#include "tools/logger/logger.hpp"
 
 namespace auto_buff
 {

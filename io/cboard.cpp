@@ -1,7 +1,7 @@
-#include "cboard.hpp"
+﻿#include "cboard.hpp"
 
-#include "tools/math_tools.hpp"
-#include "tools/yaml.hpp"
+#include "tools/math_tools/math_tools.hpp"
+#include "tools/yaml/yaml.hpp"
 
 namespace io
 {

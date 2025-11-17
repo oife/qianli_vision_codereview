@@ -1,11 +1,11 @@
-#include "io/usbcamera/usbcamera.hpp"
+﻿#include "io/usbcamera/usbcamera.hpp"
 
 #include <opencv2/opencv.hpp>
 #include <thread>
 
-#include "tools/exiter.hpp"
-#include "tools/logger.hpp"
-#include "tools/math_tools.hpp"
+#include "tools/exiter/exiter.hpp"
+#include "tools/logger/logger.hpp"
+#include "tools/math_tools/math_tools.hpp"
 
 using namespace std::chrono_literals;
 

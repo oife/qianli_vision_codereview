@@ -1,4 +1,4 @@
-#include <fmt/core.h>
+﻿#include <fmt/core.h>
 
 #include <atomic>
 #include <chrono>
@@ -12,12 +12,12 @@
 #include "tasks/auto_aim/solver.hpp"
 #include "tasks/auto_aim/tracker.hpp"
 #include "tasks/auto_aim/yolo.hpp"
-#include "tools/exiter.hpp"
-#include "tools/img_tools.hpp"
-#include "tools/logger.hpp"
-#include "tools/math_tools.hpp"
-#include "tools/plotter.hpp"
-#include "tools/thread_safe_queue.hpp"
+#include "tools/exiter/exiter.hpp"
+#include "tools/img_tools/img_tools.hpp"
+#include "tools/logger/logger.hpp"
+#include "tools/math_tools/math_tools.hpp"
+#include "tools/plotter/plotter.hpp"
+#include "tools/thread_safe_queue/thread_safe_queue.hpp"
 
 using namespace std::chrono_literals;
 

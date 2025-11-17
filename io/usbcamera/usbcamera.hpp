@@ -1,4 +1,4 @@
-#ifndef IO__USBCamera_HPP
+﻿#ifndef IO__USBCamera_HPP
 #define IO__USBCamera_HPP
 
 #include <chrono>
@@ -6,7 +6,7 @@
 #include <opencv2/opencv.hpp>
 #include <thread>
 
-#include "tools/thread_safe_queue.hpp"
+#include "tools/thread_safe_queue/thread_safe_queue.hpp"
 
 namespace io
 {

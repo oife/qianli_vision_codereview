@@ -1,4 +1,4 @@
-#ifndef IO__MINDVISION_HPP
+﻿#ifndef IO__MINDVISION_HPP
 #define IO__MINDVISION_HPP
 
 #include <chrono>
@@ -7,7 +7,7 @@
 
 #include "CameraApi.h"
 #include "io/camera.hpp"
-#include "tools/thread_safe_queue.hpp"
+#include "tools/thread_safe_queue/thread_safe_queue.hpp"
 
 namespace io
 {

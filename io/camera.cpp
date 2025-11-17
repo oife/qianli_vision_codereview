@@ -1,10 +1,10 @@
-#include "camera.hpp"
+﻿#include "camera.hpp"
 
 #include <stdexcept>
 
 #include "hikrobot/hikrobot.hpp"
 #include "mindvision/mindvision.hpp"
-#include "tools/yaml.hpp"
+#include "tools/yaml/yaml.hpp"
 
 namespace io
 {

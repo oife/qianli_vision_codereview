@@ -1,4 +1,4 @@
-#ifndef BUFF__PREDICT_HPP
+﻿#ifndef BUFF__PREDICT_HPP
 #define BUFF__PREDICT_HPP
 
 #include <algorithm>
@@ -7,9 +7,9 @@
 #include <string>
 #include <vector>
 
-#include "tools/extended_kalman_filter.hpp"
-#include "tools/img_tools.hpp"
-#include "tools/plotter.hpp"
+#include "tools/extended_kalman_filter/extended_kalman_filter.hpp"
+#include "tools/img_tools/img_tools.hpp"
+#include "tools/plotter/plotter.hpp"
 const double SMALL_W = CV_PI / 3;
 
 // Predictor 基类

@@ -1,4 +1,4 @@
-#ifndef AUTO_BUFF__SOLVER_HPP
+﻿#ifndef AUTO_BUFF__SOLVER_HPP
 #define AUTO_BUFF__SOLVER_HPP
 
 #include <yaml-cpp/yaml.h>
@@ -8,7 +8,7 @@
 #include <optional>
 
 #include "buff_type.hpp"
-#include "tools/math_tools.hpp"
+#include "tools/math_tools/math_tools.hpp"
 namespace auto_buff
 {
 // 旋转角度

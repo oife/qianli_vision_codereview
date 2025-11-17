@@ -9,13 +9,13 @@
 #include "tasks/auto_buff/buff_solver.hpp"
 #include "tasks/auto_buff/buff_target.hpp"
 #include "tasks/auto_buff/buff_type.hpp"
-#include "tools/exiter.hpp"
-#include "tools/img_tools.hpp"
-#include "tools/logger.hpp"
-#include "tools/math_tools.hpp"
-#include "tools/plotter.hpp"
-#include "tools/recorder.hpp"
-#include "tools/trajectory.hpp"
+#include "tools/exiter/exiter.hpp"
+#include "tools/img_tools/img_tools.hpp"
+#include "tools/logger/logger.hpp"
+#include "tools/math_tools/math_tools.hpp"
+#include "tools/plotter/plotter.hpp"
+#include "tools/recorder/recorder.hpp"
+#include "tools/trajectory/trajectory.hpp"
 
 // 定义命令行参数
 const std::string keys =

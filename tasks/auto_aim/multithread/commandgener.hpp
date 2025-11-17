@@ -1,4 +1,4 @@
-#ifndef AUTO_AIM_MULTITHREAD__HPP
+﻿#ifndef AUTO_AIM_MULTITHREAD__HPP
 #define AUTO_AIM_MULTITHREAD__HPP
 
 #include <optional>
@@ -7,7 +7,7 @@
 #include "tasks/auto_aim/shooter.hpp"
 #include "tasks/auto_aim/tracker.hpp"
 #include "tasks/omniperception/decider.hpp"
-#include "tools/plotter.hpp"
+#include "tools/plotter/plotter.hpp"
 
 namespace auto_aim
 {

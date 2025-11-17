@@ -1,4 +1,4 @@
-#ifndef TOOLS__RECORDER_HPP
+﻿#ifndef TOOLS__RECORDER_HPP
 #define TOOLS__RECORDER_HPP
 
 #include <Eigen/Geometry>
@@ -7,7 +7,7 @@
 #include <opencv2/opencv.hpp>
 #include <thread>
 
-#include "tools/thread_safe_queue.hpp"
+#include "tools/thread_safe_queue/thread_safe_queue.hpp"
 namespace tools
 {
 class Recorder

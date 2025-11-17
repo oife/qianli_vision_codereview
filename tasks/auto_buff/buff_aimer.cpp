@@ -1,8 +1,8 @@
-#include "buff_aimer.hpp"
+﻿#include "buff_aimer.hpp"
 
-#include "tools/logger.hpp"
-#include "tools/math_tools.hpp"
-#include "tools/trajectory.hpp"
+#include "tools/logger/logger.hpp"
+#include "tools/math_tools/math_tools.hpp"
+#include "tools/trajectory/trajectory.hpp"
 
 namespace auto_buff
 {

@@ -1,4 +1,4 @@
-#include "tasks/auto_aim/planner/planner.hpp"
+﻿#include "tasks/auto_aim/planner/planner.hpp"
 
 #include <chrono>
 #include <nlohmann/json.hpp>
@@ -6,10 +6,10 @@
 #include <thread>
 
 #include "io/gimbal/gimbal.hpp"
-#include "tools/exiter.hpp"
-#include "tools/logger.hpp"
-#include "tools/math_tools.hpp"
-#include "tools/plotter.hpp"
+#include "tools/exiter/exiter.hpp"
+#include "tools/logger/logger.hpp"
+#include "tools/math_tools/math_tools.hpp"
+#include "tools/plotter/plotter.hpp"
 
 using namespace std::chrono_literals;
 

@@ -1,4 +1,4 @@
-#include "yolov8.hpp"
+﻿#include "yolov8.hpp"
 
 #include <fmt/chrono.h>
 #include <omp.h>
@@ -9,8 +9,8 @@
 #include <random>
 
 #include "tasks/auto_aim/classifier.hpp"
-#include "tools/img_tools.hpp"
-#include "tools/logger.hpp"
+#include "tools/img_tools/img_tools.hpp"
+#include "tools/logger/logger.hpp"
 
 namespace auto_aim
 {

@@ -1,4 +1,4 @@
-#ifndef IO__HIKROBOT_HPP
+﻿#ifndef IO__HIKROBOT_HPP
 #define IO__HIKROBOT_HPP
 
 #include <atomic>
@@ -9,7 +9,7 @@
 
 #include "MvCameraControl.h"
 #include "io/camera.hpp"
-#include "tools/thread_safe_queue.hpp"
+#include "tools/thread_safe_queue/thread_safe_queue.hpp"
 
 namespace io
 {

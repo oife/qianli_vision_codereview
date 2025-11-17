@@ -1,10 +1,10 @@
-#include "mindvision.hpp"
+﻿#include "mindvision.hpp"
 
 #include <libusb-1.0/libusb.h>
 
 #include <stdexcept>
 
-#include "tools/logger.hpp"
+#include "tools/logger/logger.hpp"
 
 using namespace std::chrono_literals;
 

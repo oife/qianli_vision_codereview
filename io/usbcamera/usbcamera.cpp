@@ -1,9 +1,9 @@
-#include "usbcamera.hpp"
+﻿#include "usbcamera.hpp"
 
 #include <stdexcept>
 
-#include "tools/logger.hpp"
-#include "tools/yaml.hpp"
+#include "tools/logger/logger.hpp"
+#include "tools/yaml/yaml.hpp"
 
 using namespace std::chrono_literals;
 

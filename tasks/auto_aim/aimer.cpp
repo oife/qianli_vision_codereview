@@ -1,13 +1,13 @@
-#include "aimer.hpp"
+﻿#include "aimer.hpp"
 
 #include <yaml-cpp/yaml.h>
 
 #include <cmath>
 #include <vector>
 
-#include "tools/logger.hpp"
-#include "tools/math_tools.hpp"
-#include "tools/trajectory.hpp"
+#include "tools/logger/logger.hpp"
+#include "tools/math_tools/math_tools.hpp"
+#include "tools/trajectory/trajectory.hpp"
 
 namespace auto_aim
 {

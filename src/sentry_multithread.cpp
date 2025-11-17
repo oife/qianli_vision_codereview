@@ -1,4 +1,4 @@
-#include <fmt/core.h>
+﻿#include <fmt/core.h>
 
 #include <chrono>
 #include <future>
@@ -19,12 +19,12 @@
 #include "tasks/auto_aim/yolo.hpp"
 #include "tasks/omniperception/decider.hpp"
 #include "tasks/omniperception/perceptron.hpp"
-#include "tools/exiter.hpp"
-#include "tools/img_tools.hpp"
-#include "tools/logger.hpp"
-#include "tools/math_tools.hpp"
-#include "tools/plotter.hpp"
-#include "tools/recorder.hpp"
+#include "tools/exiter/exiter.hpp"
+#include "tools/img_tools/img_tools.hpp"
+#include "tools/logger/logger.hpp"
+#include "tools/math_tools/math_tools.hpp"
+#include "tools/plotter/plotter.hpp"
+#include "tools/recorder/recorder.hpp"
 
 using namespace std::chrono;
 

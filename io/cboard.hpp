@@ -1,4 +1,4 @@
-#ifndef IO__CBOARD_HPP
+﻿#ifndef IO__CBOARD_HPP
 #define IO__CBOARD_HPP
 
 #include <Eigen/Geometry>
@@ -10,8 +10,8 @@
 
 #include "io/command.hpp"
 #include "io/socketcan.hpp"
-#include "tools/logger.hpp"
-#include "tools/thread_safe_queue.hpp"
+#include "tools/logger/logger.hpp"
+#include "tools/thread_safe_queue/thread_safe_queue.hpp"
 
 namespace io
 {

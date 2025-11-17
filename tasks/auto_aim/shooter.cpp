@@ -1,9 +1,9 @@
-#include "shooter.hpp"
+﻿#include "shooter.hpp"
 
 #include <yaml-cpp/yaml.h>
 
-#include "tools/logger.hpp"
-#include "tools/math_tools.hpp"
+#include "tools/logger/logger.hpp"
+#include "tools/math_tools/math_tools.hpp"
 
 namespace auto_aim
 {

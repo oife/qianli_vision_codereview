@@ -1,4 +1,4 @@
-#ifndef IO__SUBSCRIBE2NAV_HPP
+﻿#ifndef IO__SUBSCRIBE2NAV_HPP
 #define IO__SUBSCRIBE2NAV_HPP
 
 #include <rclcpp/rclcpp.hpp>
@@ -8,7 +8,7 @@
 
 #include "sp_msgs/msg/autoaim_target_msg.hpp"
 #include "sp_msgs/msg/enemy_status_msg.hpp"
-#include "tools/thread_safe_queue.hpp"
+#include "tools/thread_safe_queue/thread_safe_queue.hpp"
 
 namespace io
 {

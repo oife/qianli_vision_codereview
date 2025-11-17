@@ -1,4 +1,4 @@
-#include <chrono>
+﻿#include <chrono>
 #include <opencv2/opencv.hpp>
 #include <thread>
 
@@ -9,11 +9,11 @@
 #include "tasks/auto_aim/shooter.hpp"
 #include "tasks/auto_aim/solver.hpp"
 #include "tasks/auto_aim/tracker.hpp"
-#include "tools/exiter.hpp"
-#include "tools/img_tools.hpp"
-#include "tools/logger.hpp"
-#include "tools/math_tools.hpp"
-#include "tools/plotter.hpp"
+#include "tools/exiter/exiter.hpp"
+#include "tools/img_tools/img_tools.hpp"
+#include "tools/logger/logger.hpp"
+#include "tools/math_tools/math_tools.hpp"
+#include "tools/plotter/plotter.hpp"
 
 const std::string keys =
   "{help h usage ? | | 输出命令行参数说明}"

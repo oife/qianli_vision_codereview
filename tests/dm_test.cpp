@@ -1,10 +1,10 @@
-#include <chrono>
+﻿#include <chrono>
 #include <thread>
 
 #include "io/dm_imu/dm_imu.hpp"
-#include "tools/exiter.hpp"
-#include "tools/logger.hpp"
-#include "tools/math_tools.hpp"
+#include "tools/exiter/exiter.hpp"
+#include "tools/logger/logger.hpp"
+#include "tools/math_tools/math_tools.hpp"
 
 using namespace std::chrono_literals;
 

@@ -1,4 +1,4 @@
-
+﻿
 #include <fmt/core.h>
 #include <yaml-cpp/yaml.h>
 
@@ -11,9 +11,9 @@
 #include "io/camera.hpp"
 #include "io/cboard.hpp"
 #include "tasks/auto_aim/solver.hpp"
-#include "tools/exiter.hpp"
-#include "tools/img_tools.hpp"
-#include "tools/logger.hpp"
+#include "tools/exiter/exiter.hpp"
+#include "tools/img_tools/img_tools.hpp"
+#include "tools/logger/logger.hpp"
 
 const std::string keys =
   "{help h usage ? |                     | 输出命令行参数说明}"

@@ -1,11 +1,11 @@
-#include "tracker.hpp"
+﻿#include "tracker.hpp"
 
 #include <yaml-cpp/yaml.h>
 
 #include <tuple>
 
-#include "tools/logger.hpp"
-#include "tools/math_tools.hpp"
+#include "tools/logger/logger.hpp"
+#include "tools/math_tools/math_tools.hpp"
 
 namespace auto_aim
 {
