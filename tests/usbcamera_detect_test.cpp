@@ -1,4 +1,15 @@
-﻿#include <opencv2/opencv.hpp>
+﻿/**
+ * @file usbcamera_detect_test.cpp
+ * @brief 测试USB相机检测功能
+ * 
+ * 该测试程序用于验证USB相机与检测器的集成，包括：
+ * - 从USB相机读取图像
+ * - 使用YOLO进行目标检测
+ * - 计算并显示帧率
+ * - 可选显示检测结果
+ */
+
+#include <opencv2/opencv.hpp>
 #include <thread>
 
 #include "io/usbcamera/usbcamera.hpp"

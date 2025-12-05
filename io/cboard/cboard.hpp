@@ -8,8 +8,8 @@
 #include <string>
 #include <vector>
 
-#include "io/command.hpp"
-#include "io/socketcan.hpp"
+#include "io/cboard/command.hpp"
+#include "io/socketcan/socketcan.hpp"
 #include "tools/logger/logger.hpp"
 #include "tools/thread_safe_queue/thread_safe_queue.hpp"
 

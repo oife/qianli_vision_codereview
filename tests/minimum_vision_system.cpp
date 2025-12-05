@@ -1,8 +1,21 @@
-﻿#include <chrono>
+﻿/**
+ * @file minimum_vision_system.cpp
+ * @brief 最小视觉系统测试 - 完整的自瞄系统集成测试
+ * 
+ * 该测试程序实现了完整的自动瞄准系统，包括：
+ * - 多线程图像采集和检测
+ * - IMU数据融合
+ * - 目标跟踪和预测
+ * - 弹道解算和瞄准控制
+ * - 射击决策
+ * - 可视化调试信息（重投影、状态显示等）
+ */
+
+#include <chrono>
 #include <opencv2/opencv.hpp>
 #include <thread>
 
-#include "io/camera.hpp"
+#include "io/camera/camera.hpp"
 #include "io/dm_imu/dm_imu.hpp"
 #include "tasks/auto_aim/aimer.hpp"
 #include "tasks/auto_aim/multithread/mt_detector.hpp"

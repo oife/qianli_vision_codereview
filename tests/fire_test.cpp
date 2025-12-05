@@ -1,4 +1,14 @@
-﻿#include <fmt/format.h>
+﻿/**
+ * @file fire_test.cpp
+ * @brief 测试开火功能
+ * 
+ * 该测试程序用于验证云台开火控制，包括：
+ * - 云台控制命令发送
+ * - 周期性开火测试
+ * - 状态记录和可视化
+ */
+
+#include <fmt/format.h>
 
 #include "io/gimbal/gimbal.hpp"
 #include "tools/exiter/exiter.hpp"

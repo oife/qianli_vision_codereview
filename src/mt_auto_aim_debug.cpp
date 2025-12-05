@@ -4,8 +4,8 @@
 #include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
 
-#include "io/camera.hpp"
-#include "io/cboard.hpp"
+#include "io/camera/camera.hpp"
+#include "io/cboard/cboard.hpp"
 #include "tasks/auto_aim/aimer.hpp"
 #include "tasks/auto_aim/multithread/commandgener.hpp"
 #include "tasks/auto_aim/multithread/mt_detector.hpp"

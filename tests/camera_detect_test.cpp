@@ -1,9 +1,19 @@
-﻿#include <fmt/core.h>
+﻿/**
+ * @file camera_detect_test.cpp
+ * @brief 测试相机图像检测功能
+ * 
+ * 该测试程序用于验证目标检测功能，包括：
+ * - 从相机读取图像
+ * - 使用传统方法或YOLO进行装甲板检测
+ * - 显示检测结果和性能统计
+ */
+
+#include <fmt/core.h>
 
 #include <chrono>
 #include <opencv2/opencv.hpp>
 
-#include "io/camera.hpp"
+#include "io/camera/camera.hpp"
 #include "tasks/auto_aim/detector.hpp"
 #include "tasks/auto_aim/yolo.hpp"
 #include "tools/exiter/exiter.hpp"
@@ -34,26 +44,52 @@ int main(int argc, char * argv[])
 
   std::chrono::steady_clock::time_point timestamp;
 
+  // FPS统计变量
+  int frame_count = 0;
+  auto fps_start_time = std::chrono::steady_clock::now();
+  const auto fps_interval = std::chrono::seconds(1);  // 每秒更新一次FPS
+
   while (!exiter.exit()) {
+    auto loop_start = std::chrono::steady_clock::now();
+    
     cv::Mat img;
     std::list<auto_aim::Armor> armors;
 
+    // 测量相机读取耗时
+    auto read_start = std::chrono::steady_clock::now();
     camera.read(img, timestamp);
+    auto read_end = std::chrono::steady_clock::now();
+    double read_time = tools::delta_time(read_end, read_start) * 1000;
 
     if (img.empty()) break;
 
-    auto last = std::chrono::steady_clock::now();
-
+    // 测量检测耗时
+    auto detect_start = std::chrono::steady_clock::now();
     if (use_tradition)
       armors = detector.detect(img);
     else
       armors = yolo.detect(img);
+    auto detect_end = std::chrono::steady_clock::now();
+    double detect_time = tools::delta_time(detect_end, detect_start) * 1000;
+    
+    // 统计帧数
+    frame_count++;
+    
+    // 计算FPS：统计1秒内处理的帧数
+    auto elapsed = std::chrono::steady_clock::now() - fps_start_time;
+    if (elapsed >= fps_interval) {
+      double fps = frame_count / tools::delta_time(std::chrono::steady_clock::now(), fps_start_time);
+      auto loop_end = std::chrono::steady_clock::now();
+      double loop_time = tools::delta_time(loop_end, loop_start) * 1000;
+      tools::logger()->info("FPS: {:.2f} | 相机读取: {:.3f} ms | 检测耗时: {:.3f} ms | 循环总耗时: {:.3f} ms", 
+                            fps, read_time, detect_time, loop_time);
+      
+      // 重置统计
+      frame_count = 0;
+      fps_start_time = std::chrono::steady_clock::now();
+    }
 
-    auto now = std::chrono::steady_clock::now();
-    auto dt = tools::delta_time(now, last);
-    tools::logger()->info("{:.2f} fps", 1 / dt);
-
-    auto key = cv::waitKey(33);
+    auto key = cv::waitKey(1);  // 改为1ms，减少等待时间对FPS的影响
     if (key == 'q') break;
   }
 

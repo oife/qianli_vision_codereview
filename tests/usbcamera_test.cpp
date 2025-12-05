@@ -1,4 +1,14 @@
-﻿#include "io/usbcamera/usbcamera.hpp"
+﻿/**
+ * @file usbcamera_test.cpp
+ * @brief 测试USB相机的基本读取功能
+ * 
+ * 该测试程序用于验证USB相机的图像采集功能，包括：
+ * - 从USB相机读取图像数据
+ * - 计算并显示帧率（FPS）
+ * - 可选显示视频流窗口
+ */
+
+#include "io/usbcamera/usbcamera.hpp"
 
 #include <opencv2/opencv.hpp>
 #include <thread>

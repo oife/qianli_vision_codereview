@@ -3,7 +3,7 @@
 
 #include <string>
 
-#include "io/command.hpp"
+#include "io/cboard/command.hpp"
 #include "tasks/auto_aim/aimer.hpp"
 
 namespace auto_aim

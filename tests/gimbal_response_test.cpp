@@ -1,10 +1,21 @@
-﻿#include <chrono>
+﻿/**
+ * @file gimbal_response_test.cpp
+ * @brief 测试云台响应性能
+ * 
+ * 该测试程序用于测试云台对不同控制信号的响应，包括：
+ * - 三角波信号测试
+ * - 阶跃信号测试
+ * - 圆形轨迹测试
+ * - 响应延迟和精度分析
+ */
+
+#include <chrono>
 #include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
 #include <thread>
 
-#include "io/cboard.hpp"
-#include "io/command.hpp"
+#include "io/cboard/cboard.hpp"
+#include "io/cboard/command.hpp"
 #include "tools/exiter/exiter.hpp"
 #include "tools/logger/logger.hpp"
 #include "tools/math_tools/math_tools.hpp"

@@ -5,8 +5,8 @@
 #include <chrono>
 #include <list>
 
-#include "io/cboard.hpp"
-#include "io/command.hpp"
+#include "io/cboard/cboard.hpp"
+#include "io/cboard/command.hpp"
 #include "target.hpp"
 
 namespace auto_aim

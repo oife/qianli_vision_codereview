@@ -4,8 +4,8 @@
 #include <fstream>
 #include <opencv2/opencv.hpp>
 
-#include "io/camera.hpp"
-#include "io/cboard.hpp"
+#include "io/camera/camera.hpp"
+#include "io/cboard/cboard.hpp"
 #include "tools/img_tools/img_tools.hpp"
 #include "tools/logger/logger.hpp"
 #include "tools/math_tools/math_tools.hpp"

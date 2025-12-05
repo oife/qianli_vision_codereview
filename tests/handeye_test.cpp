@@ -1,4 +1,14 @@
-﻿
+﻿/**
+ * @file handeye_test.cpp
+ * @brief 测试手眼标定功能
+ * 
+ * 该测试程序用于验证手眼标定结果，包括：
+ * - 从相机读取图像
+ * - 读取IMU姿态数据
+ * - 将世界坐标系点投影到图像平面
+ * - 可视化投影结果和云台姿态
+ */
+
 #include <fmt/core.h>
 #include <yaml-cpp/yaml.h>
 
@@ -8,8 +18,8 @@
 #include <nlohmann/json.hpp>
 #include <opencv2/core/eigen.hpp>
 
-#include "io/camera.hpp"
-#include "io/cboard.hpp"
+#include "io/camera/camera.hpp"
+#include "io/cboard/cboard.hpp"
 #include "tasks/auto_aim/solver.hpp"
 #include "tools/exiter/exiter.hpp"
 #include "tools/img_tools/img_tools.hpp"

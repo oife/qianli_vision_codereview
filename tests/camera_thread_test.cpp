@@ -1,4 +1,15 @@
-﻿#include <fmt/core.h>
+﻿/**
+ * @file camera_thread_test.cpp
+ * @brief 测试多线程相机处理和YOLO检测
+ * 
+ * 该测试程序用于验证多线程图像处理性能，包括：
+ * - 相机图像采集
+ * - 多线程YOLO检测（使用线程池）
+ * - 有序队列管理检测结果
+ * - 性能统计和可视化
+ */
+
+#include <fmt/core.h>
 #include <unistd.h>
 
 #include <chrono>
@@ -8,8 +19,8 @@
 #include <opencv2/opencv.hpp>
 #include <thread>
 
-#include "io/camera.hpp"
-#include "io/cboard.hpp"
+#include "io/camera/camera.hpp"
+#include "io/cboard/cboard.hpp"
 #include "tasks/auto_aim/aimer.hpp"
 #include "tasks/auto_aim/solver.hpp"
 #include "tasks/auto_aim/tracker.hpp"

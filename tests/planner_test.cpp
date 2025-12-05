@@ -1,4 +1,15 @@
-﻿#include "tasks/auto_aim/planner/planner.hpp"
+﻿/**
+ * @file planner_test.cpp
+ * @brief 在线测试路径规划器（带实际硬件）
+ * 
+ * 该测试程序用于在线测试路径规划算法，包括：
+ * - 创建模拟目标
+ * - 路径规划计算
+ * - 将规划结果发送到实际云台
+ * - 监控云台状态和规划效果
+ */
+
+#include "tasks/auto_aim/planner/planner.hpp"
 
 #include <chrono>
 #include <nlohmann/json.hpp>

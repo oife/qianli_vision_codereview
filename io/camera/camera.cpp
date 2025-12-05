@@ -2,8 +2,8 @@
 
 #include <stdexcept>
 
-#include "hikrobot/hikrobot.hpp"
-#include "mindvision/mindvision.hpp"
+#include "io/hikrobot/hikrobot.hpp"
+#include "io/mindvision/mindvision.hpp"
 #include "tools/yaml/yaml.hpp"
 
 namespace io

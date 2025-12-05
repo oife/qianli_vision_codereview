@@ -1,4 +1,16 @@
-﻿#include <fmt/core.h>
+﻿/**
+ * @file auto_aim_test.cpp
+ * @brief 测试自动瞄准功能（离线视频测试）
+ * 
+ * 该测试程序用于离线测试自动瞄准系统，包括：
+ * - 从视频文件读取图像和IMU数据
+ * - YOLO目标检测
+ * - 目标跟踪和预测
+ * - 弹道解算和瞄准控制
+ * - 可视化调试信息（重投影、状态显示等）
+ */
+
+#include <fmt/core.h>
 
 #include <chrono>
 #include <fstream>

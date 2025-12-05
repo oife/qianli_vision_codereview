@@ -1,4 +1,15 @@
-﻿#include <rclcpp/rclcpp.hpp>
+﻿/**
+ * @file topic_loop_test.cpp
+ * @brief 测试ROS2话题循环通信
+ * 
+ * 该测试程序用于验证ROS2话题的发布和订阅循环，包括：
+ * - 创建自定义发布者
+ * - 发布敌方状态消息
+ * - 同时订阅相同话题
+ * - 测试消息循环传递
+ */
+
+#include <rclcpp/rclcpp.hpp>
 #include <thread>
 
 #include "io/ros2/ros2.hpp"

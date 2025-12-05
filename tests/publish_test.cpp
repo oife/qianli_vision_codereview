@@ -1,4 +1,14 @@
-﻿#include <rclcpp/rclcpp.hpp>
+﻿/**
+ * @file publish_test.cpp
+ * @brief 测试ROS2消息发布功能
+ * 
+ * 该测试程序用于验证ROS2消息发布功能，包括：
+ * - 初始化ROS2节点
+ * - 发布装甲板检测数据
+ * - 测试消息发布频率
+ */
+
+#include <rclcpp/rclcpp.hpp>
 #include <thread>
 
 #include "io/ros2/ros2.hpp"

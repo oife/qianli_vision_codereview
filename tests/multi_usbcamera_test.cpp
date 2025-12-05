@@ -1,7 +1,17 @@
-﻿#include <opencv2/opencv.hpp>
+﻿/**
+ * @file multi_usbcamera_test.cpp
+ * @brief 测试多个USB相机同时读取
+ * 
+ * 该测试程序用于验证多相机同步采集功能，包括：
+ * - 同时从多个USB相机读取图像
+ * - 计算并显示帧率
+ * - 可选显示所有相机的视频流
+ */
+
+#include <opencv2/opencv.hpp>
 #include <thread>
 
-#include "io/camera.hpp"
+#include "io/camera/camera.hpp"
 #include "io/usbcamera/usbcamera.hpp"
 #include "tools/exiter/exiter.hpp"
 #include "tools/logger/logger.hpp"

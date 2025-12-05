@@ -1,4 +1,15 @@
-﻿#include <chrono>
+﻿/**
+ * @file planner_test_offline.cpp
+ * @brief 离线测试路径规划器
+ * 
+ * 该测试程序用于离线测试路径规划算法，包括：
+ * - 创建模拟目标
+ * - 路径规划计算
+ * - 规划结果可视化
+ * - 不涉及实际硬件控制
+ */
+
+#include <chrono>
 #include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
 #include <thread>

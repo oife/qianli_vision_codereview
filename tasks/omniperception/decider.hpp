@@ -7,8 +7,8 @@
 #include <unordered_map>
 
 #include "detection.hpp"
-#include "io/camera.hpp"
-#include "io/command.hpp"
+#include "io/camera/camera.hpp"
+#include "io/cboard/command.hpp"
 #include "io/usbcamera/usbcamera.hpp"
 #include "tasks/auto_aim/armor.hpp"
 #include "tasks/auto_aim/target.hpp"

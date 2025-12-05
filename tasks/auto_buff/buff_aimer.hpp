@@ -11,7 +11,7 @@
 #include "../auto_aim/planner/planner.hpp"
 #include "buff_target.hpp"
 #include "buff_type.hpp"
-#include "io/command.hpp"
+#include "io/cboard/command.hpp"
 #include "io/gimbal/gimbal.hpp"
 
 namespace auto_buff

@@ -1,4 +1,14 @@
-﻿#include <rclcpp/rclcpp.hpp>
+﻿/**
+ * @file subscribe_test.cpp
+ * @brief 测试ROS2消息订阅功能
+ * 
+ * 该测试程序用于验证ROS2消息订阅功能，包括：
+ * - 初始化ROS2节点
+ * - 订阅敌方状态消息
+ * - 显示接收到的数据
+ */
+
+#include <rclcpp/rclcpp.hpp>
 #include <thread>
 
 #include "io/ros2/ros2.hpp"

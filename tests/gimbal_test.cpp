@@ -1,4 +1,15 @@
-﻿#include "io/gimbal/gimbal.hpp"
+﻿/**
+ * @file gimbal_test.cpp
+ * @brief 测试云台控制和状态监控
+ * 
+ * 该测试程序用于验证云台功能，包括：
+ * - 云台状态读取（姿态、速度、子弹速度等）
+ * - 云台控制命令发送
+ * - 可选的开火测试（周期性开火）
+ * - 状态数据可视化
+ */
+
+#include "io/gimbal/gimbal.hpp"
 
 #include <chrono>
 #include <opencv2/opencv.hpp>

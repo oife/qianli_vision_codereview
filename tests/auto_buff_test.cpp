@@ -1,4 +1,16 @@
-﻿#include <fmt/core.h>
+﻿/**
+ * @file auto_buff_test.cpp
+ * @brief 测试自动能量机关（buff）检测和瞄准功能
+ * 
+ * 该测试程序用于验证能量机关识别和瞄准系统，包括：
+ * - 从视频文件读取图像和IMU数据
+ * - 能量机关（大符）检测
+ * - 目标跟踪和预测
+ * - 弹道解算和瞄准控制
+ * - 可视化调试信息（重投影、状态显示等）
+ */
+
+#include <fmt/core.h>
 
 #include <chrono>
 #include <fstream>

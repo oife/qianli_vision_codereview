@@ -1,4 +1,14 @@
-﻿#include "io/cboard.hpp"
+﻿/**
+ * @file cboard_test.cpp
+ * @brief 测试控制板（CBoard）的IMU数据读取
+ * 
+ * 该测试程序用于验证控制板功能，包括：
+ * - 读取IMU四元数数据
+ * - 转换为欧拉角并显示
+ * - 显示子弹速度信息
+ */
+
+#include "io/cboard/cboard.hpp"
 
 #include <chrono>
 #include <opencv2/opencv.hpp>

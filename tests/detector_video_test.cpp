@@ -1,4 +1,15 @@
-﻿#include <fmt/core.h>
+﻿/**
+ * @file detector_video_test.cpp
+ * @brief 测试检测器在视频上的表现
+ * 
+ * 该测试程序用于验证检测器在视频文件上的性能，包括：
+ * - 从视频文件读取图像
+ * - 使用传统方法或YOLO进行装甲板检测
+ * - 输出检测结果的像素坐标
+ * - 性能可视化
+ */
+
+#include <fmt/core.h>
 
 #include <chrono>
 #include <opencv2/opencv.hpp>

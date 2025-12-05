@@ -1,4 +1,13 @@
-﻿#include <chrono>
+﻿/**
+ * @file dm_test.cpp
+ * @brief 测试DM IMU数据读取
+ * 
+ * 该测试程序用于验证DM IMU模块功能，包括：
+ * - 读取IMU四元数数据
+ * - 转换为欧拉角并显示
+ */
+
+#include <chrono>
 #include <thread>
 
 #include "io/dm_imu/dm_imu.hpp"
@@ -10,6 +19,8 @@ using namespace std::chrono_literals;
 
 int main()
 {
+  tools::logger()->set_level(spdlog::level::debug);
+  
   tools::Exiter exiter;
   io::DM_IMU imu;
 

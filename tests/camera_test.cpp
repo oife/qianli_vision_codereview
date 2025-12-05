@@ -1,4 +1,14 @@
-﻿#include "io/camera.hpp"
+﻿/**
+ * @file camera_test.cpp
+ * @brief 测试相机接口的基本读取功能
+ * 
+ * 该测试程序用于验证相机抽象接口的图像采集功能，包括：
+ * - 从相机读取图像数据
+ * - 计算并显示帧率（FPS）
+ * - 可选显示视频流窗口
+ */
+
+#include "io/camera/camera.hpp"
 
 #include <opencv2/opencv.hpp>
 
