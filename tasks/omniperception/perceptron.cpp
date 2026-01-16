@@ -4,7 +4,7 @@
 #include <memory>
 #include <thread>
 
-#include "tasks/auto_aim/yolo.hpp"
+#include "tasks/auto_aim/yolos/yolo.hpp"
 #include "tools/exiter/exiter.hpp"
 #include "tools/logger/logger.hpp"
 

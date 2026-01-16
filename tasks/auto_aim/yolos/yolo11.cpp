@@ -55,6 +55,7 @@ YOLO11::YOLO11(const std::string & config_path, bool debug)
 
 std::list<Armor> YOLO11::detect(const cv::Mat & raw_img, int frame_count)
 {
+  // 检查输入图像是否为空
   if (raw_img.empty()) {
     tools::logger()->warn("Empty img!, camera drop!");
     return std::list<Armor>();
@@ -62,6 +63,7 @@ std::list<Armor> YOLO11::detect(const cv::Mat & raw_img, int frame_count)
 
   cv::Mat bgr_img;
   tmp_img_ = raw_img;
+  // 根据配置决定是否使用ROI区域裁剪
   if (use_roi_) {
     if (roi_.width == -1) {  // -1 表示该维度不裁切
       roi_.width = raw_img.cols;
@@ -74,24 +76,25 @@ std::list<Armor> YOLO11::detect(const cv::Mat & raw_img, int frame_count)
     bgr_img = raw_img;
   }
 
+  // 计算缩放比例，保持宽高比
   auto x_scale = static_cast<double>(640) / bgr_img.rows;
   auto y_scale = static_cast<double>(640) / bgr_img.cols;
   auto scale = std::min(x_scale, y_scale);
   auto h = static_cast<int>(bgr_img.rows * scale);
   auto w = static_cast<int>(bgr_img.cols * scale);
 
-  // preproces
+  // 图像预处理：缩放到640x640，并填充到模型输入尺寸
   auto input = cv::Mat(640, 640, CV_8UC3, cv::Scalar(0, 0, 0));
   auto roi = cv::Rect(0, 0, w, h);
   cv::resize(bgr_img, input(roi), {w, h});
   ov::Tensor input_tensor(ov::element::u8, {1, 640, 640, 3}, input.data);
 
-  /// infer
+  // 模型推理
   auto infer_request = compiled_model_.create_infer_request();
   infer_request.set_input_tensor(input_tensor);
   infer_request.infer();
 
-  // postprocess
+  // 获取模型输出
   auto output_tensor = infer_request.get_output_tensor();
   auto output_shape = output_tensor.get_shape();
   cv::Mat output(output_shape[1], output_shape[2], CV_32F, output_tensor.data());
@@ -101,7 +104,9 @@ std::list<Armor> YOLO11::detect(const cv::Mat & raw_img, int frame_count)
 
 std::list<Armor> YOLO11::parse(
   double scale, cv::Mat & output, const cv::Mat & bgr_img, int frame_count)
-{  // for each row: xywh + classess
+{
+  // 转置输出矩阵以便处理
+  // 解析每一行输出：xywh + 类别分数 + 关键点
   cv::transpose(output, output);
 
   std::vector<int> ids;
@@ -115,12 +120,15 @@ std::list<Armor> YOLO11::parse(
 
     std::vector<cv::Point2f> armor_key_points;
 
+    // 获取最高置信度分数
     double score;
     cv::Point max_point;
     cv::minMaxLoc(scores, nullptr, &score, nullptr, &max_point);
 
+    // 过滤低置信度检测结果
     if (score < score_threshold_) continue;
 
+    // 提取边界框坐标并缩放回原图尺寸
     auto x = xywh.at<float>(0);
     auto y = xywh.at<float>(1);
     auto w = xywh.at<float>(2);
@@ -130,6 +138,7 @@ std::list<Armor> YOLO11::parse(
     auto width = static_cast<int>(w / scale);
     auto height = static_cast<int>(h / scale);
 
+    // 提取并缩放关键点坐标（4个角点）
     for (int i = 0; i < 4; i++) {
       float x = one_key_points.at<float>(0, i * 2 + 0) / scale;
       float y = one_key_points.at<float>(0, i * 2 + 1) / scale;
@@ -142,9 +151,11 @@ std::list<Armor> YOLO11::parse(
     armors_key_points.emplace_back(armor_key_points);
   }
 
+  // 应用NMS（非极大值抑制）去除重复检测
   std::vector<int> indices;
   cv::dnn::NMSBoxes(boxes, confidences, score_threshold_, nms_threshold_, indices);
 
+  // 创建装甲板对象列表
   std::list<Armor> armors;
   for (const auto & i : indices) {
     sort_keypoints(armors_key_points[i]);
@@ -155,17 +166,21 @@ std::list<Armor> YOLO11::parse(
     }
   }
 
+  // 后处理：验证和过滤检测结果
   for (auto it = armors.begin(); it != armors.end();) {
+    // 检查名称和置信度
     if (!check_name(*it)) {
       it = armors.erase(it);
       continue;
     }
 
+    // 检查类型匹配
     if (!check_type(*it)) {
       it = armors.erase(it);
       continue;
     }
 
+    // 计算归一化中心点
     it->center_norm = get_center_norm(bgr_img, it->center);
     ++it;
   }
@@ -208,11 +223,13 @@ cv::Point2f YOLO11::get_center_norm(const cv::Mat & bgr_img, const cv::Point2f &
 
 void YOLO11::sort_keypoints(std::vector<cv::Point2f> & keypoints)
 {
+  // 确保关键点数量为4
   if (keypoints.size() != 4) {
     std::cout << "beyond 4!!" << std::endl;
     return;
   }
 
+  // 按y坐标排序，分为上下两组
   std::sort(keypoints.begin(), keypoints.end(), [](const cv::Point2f & a, const cv::Point2f & b) {
     return a.y < b.y;
   });
@@ -220,6 +237,7 @@ void YOLO11::sort_keypoints(std::vector<cv::Point2f> & keypoints)
   std::vector<cv::Point2f> top_points = {keypoints[0], keypoints[1]};
   std::vector<cv::Point2f> bottom_points = {keypoints[2], keypoints[3]};
 
+  // 对上下两组分别按x坐标排序
   std::sort(top_points.begin(), top_points.end(), [](const cv::Point2f & a, const cv::Point2f & b) {
     return a.x < b.x;
   });
@@ -228,17 +246,20 @@ void YOLO11::sort_keypoints(std::vector<cv::Point2f> & keypoints)
     bottom_points.begin(), bottom_points.end(),
     [](const cv::Point2f & a, const cv::Point2f & b) { return a.x < b.x; });
 
+  // 重新排列为：左上、右上、右下、左下
   keypoints[0] = top_points[0];     // top-left
-  keypoints[1] = top_points[1];     // top-right
+  keypoints[1] = top_points[1];       // top-right
   keypoints[2] = bottom_points[1];  // bottom-right
-  keypoints[3] = bottom_points[0];  // bottom-left
+  keypoints[3] = bottom_points[0];   // bottom-left
 }
 
 void YOLO11::draw_detections(
   const cv::Mat & img, const std::list<Armor> & armors, int frame_count) const
 {
   auto detection = img.clone();
+  // 绘制帧计数
   tools::draw_text(detection, fmt::format("[{}]", frame_count), {10, 30}, {255, 255, 255});
+  // 绘制每个检测到的装甲板
   for (const auto & armor : armors) {
     auto info = fmt::format(
       "{:.2f} {} {} {}", armor.confidence, COLORS[armor.color], ARMOR_NAMES[armor.name],
@@ -247,6 +268,7 @@ void YOLO11::draw_detections(
     tools::draw_text(detection, info, armor.center, {0, 255, 0});
   }
 
+  // 如果使用ROI，绘制ROI区域
   if (use_roi_) {
     cv::Scalar green(0, 255, 0);
     cv::rectangle(detection, roi_, green, 2);

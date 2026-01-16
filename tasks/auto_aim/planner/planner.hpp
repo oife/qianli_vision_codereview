@@ -5,7 +5,7 @@
 #include <list>
 #include <optional>
 
-#include "tasks/auto_aim/target.hpp"
+#include "tasks/auto_aim/target/target.hpp"
 #include "tinympc/tiny_api.hpp"
 
 namespace auto_aim

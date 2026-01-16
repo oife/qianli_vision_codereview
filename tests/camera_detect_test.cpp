@@ -14,8 +14,8 @@
 #include <opencv2/opencv.hpp>
 
 #include "io/camera/camera.hpp"
-#include "tasks/auto_aim/detector.hpp"
-#include "tasks/auto_aim/yolo.hpp"
+#include "tasks/auto_aim/detector/detector.hpp"
+#include "tasks/auto_aim/yolos/yolo.hpp"
 #include "tools/exiter/exiter.hpp"
 #include "tools/logger/logger.hpp"
 #include "tools/math_tools/math_tools.hpp"

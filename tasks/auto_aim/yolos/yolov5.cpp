@@ -56,12 +56,14 @@ YOLOV5::YOLOV5(const std::string & config_path, bool debug)
 
 std::list<Armor> YOLOV5::detect(const cv::Mat & raw_img, int frame_count)
 {
+  // 检查输入图像是否为空
   if (raw_img.empty()) {
     tools::logger()->warn("Empty img!, camera drop!");
     return std::list<Armor>();
   }
 
   cv::Mat bgr_img;
+  // 根据配置决定是否使用ROI区域裁剪
   if (use_roi_) {
     if (roi_.width == -1) {  // -1 表示该维度不裁切
       roi_.width = raw_img.cols;
@@ -74,24 +76,25 @@ std::list<Armor> YOLOV5::detect(const cv::Mat & raw_img, int frame_count)
     bgr_img = raw_img;
   }
 
+  // 计算缩放比例，保持宽高比
   auto x_scale = static_cast<double>(640) / bgr_img.rows;
   auto y_scale = static_cast<double>(640) / bgr_img.cols;
   auto scale = std::min(x_scale, y_scale);
   auto h = static_cast<int>(bgr_img.rows * scale);
   auto w = static_cast<int>(bgr_img.cols * scale);
 
-  // preproces
+  // 图像预处理：缩放到640x640，并填充到模型输入尺寸
   auto input = cv::Mat(640, 640, CV_8UC3, cv::Scalar(0, 0, 0));
   auto roi = cv::Rect(0, 0, w, h);
   cv::resize(bgr_img, input(roi), {w, h});
   ov::Tensor input_tensor(ov::element::u8, {1, 640, 640, 3}, input.data);
 
-  // infer
+  // 模型推理
   auto infer_request = compiled_model_.create_infer_request();
   infer_request.set_input_tensor(input_tensor);
   infer_request.infer();
 
-  // postprocess
+  // 获取模型输出
   auto output_tensor = infer_request.get_output_tensor();
   auto output_shape = output_tensor.get_shape();
   cv::Mat output(output_shape[1], output_shape[2], CV_32F, output_tensor.data());
@@ -102,22 +105,24 @@ std::list<Armor> YOLOV5::detect(const cv::Mat & raw_img, int frame_count)
 std::list<Armor> YOLOV5::parse(
   double scale, cv::Mat & output, const cv::Mat & bgr_img, int frame_count)
 {
-  // for each row: xywh + classess
+  // 解析每一行输出：xywh + 类别分数
   std::vector<int> color_ids, num_ids;
   std::vector<float> confidences;
   std::vector<cv::Rect> boxes;
   std::vector<std::vector<cv::Point2f>> armors_key_points;
   for (int r = 0; r < output.rows; r++) {
+    // 获取置信度分数并应用sigmoid激活
     double score = output.at<float>(r, 8);
     score = sigmoid(score);
 
+    // 过滤低置信度检测结果
     if (score < score_threshold_) continue;
 
     std::vector<cv::Point2f> armor_key_points;
 
-    //颜色和类别独热向量
-    cv::Mat color_scores = output.row(r).colRange(9, 13);     //color
-    cv::Mat classes_scores = output.row(r).colRange(13, 22);  //num
+    // 提取颜色和类别独热向量
+    cv::Mat color_scores = output.row(r).colRange(9, 13);     // 颜色分数
+    cv::Mat classes_scores = output.row(r).colRange(13, 22);  // 类别分数
     cv::Point class_id, color_id;
     int _class_id, _color_id;
     double score_color, score_num;
@@ -126,6 +131,7 @@ std::list<Armor> YOLOV5::parse(
     _class_id = class_id.x;
     _color_id = color_id.x;
 
+    // 提取并缩放关键点坐标（4个角点）
     armor_key_points.push_back(
       cv::Point2f(output.at<float>(r, 0) / scale, output.at<float>(r, 1) / scale));
     armor_key_points.push_back(
@@ -135,6 +141,7 @@ std::list<Armor> YOLOV5::parse(
     armor_key_points.push_back(
       cv::Point2f(output.at<float>(r, 2) / scale, output.at<float>(r, 3) / scale));
 
+    // 计算边界框（从关键点计算）
     float min_x = armor_key_points[0].x;
     float max_x = armor_key_points[0].x;
     float min_y = armor_key_points[0].y;
@@ -149,6 +156,7 @@ std::list<Armor> YOLOV5::parse(
 
     cv::Rect rect(min_x, min_y, max_x - min_x, max_y - min_y);
 
+    // 保存检测结果
     color_ids.emplace_back(_color_id);
     num_ids.emplace_back(_class_id);
     boxes.emplace_back(rect);
@@ -156,9 +164,11 @@ std::list<Armor> YOLOV5::parse(
     armors_key_points.emplace_back(armor_key_points);
   }
 
+  // 应用NMS（非极大值抑制）去除重复检测
   std::vector<int> indices;
   cv::dnn::NMSBoxes(boxes, confidences, score_threshold_, nms_threshold_, indices);
 
+  // 创建装甲板对象列表
   std::list<Armor> armors;
   for (const auto & i : indices) {
     if (use_roi_) {
@@ -169,13 +179,16 @@ std::list<Armor> YOLOV5::parse(
     }
   }
 
+  // 后处理：验证和过滤检测结果
   tmp_img_ = bgr_img;
   for (auto it = armors.begin(); it != armors.end();) {
+    // 检查名称和置信度
     if (!check_name(*it)) {
       it = armors.erase(it);
       continue;
     }
 
+    // 检查类型匹配
     if (!check_type(*it)) {
       it = armors.erase(it);
       continue;
@@ -183,6 +196,7 @@ std::list<Armor> YOLOV5::parse(
     // 使用传统方法二次矫正角点
     if (use_traditional_) detector_.detect(*it, bgr_img);
 
+    // 计算归一化中心点
     it->center_norm = get_center_norm(bgr_img, it->center);
     ++it;
   }
@@ -227,7 +241,9 @@ void YOLOV5::draw_detections(
   const cv::Mat & img, const std::list<Armor> & armors, int frame_count) const
 {
   auto detection = img.clone();
+  // 绘制帧计数
   tools::draw_text(detection, fmt::format("[{}]", frame_count), {10, 30}, {255, 255, 255});
+  // 绘制每个检测到的装甲板
   for (const auto & armor : armors) {
     auto info = fmt::format(
       "{:.2f} {} {} {}", armor.confidence, COLORS[armor.color], ARMOR_NAMES[armor.name],
@@ -236,6 +252,7 @@ void YOLOV5::draw_detections(
     tools::draw_text(detection, info, armor.center, {0, 255, 0});
   }
 
+  // 如果使用ROI，绘制ROI区域
   if (use_roi_) {
     cv::Scalar green(0, 255, 0);
     cv::rectangle(detection, roi_, green, 2);
@@ -253,6 +270,7 @@ void YOLOV5::save(const Armor & armor) const
 
 double YOLOV5::sigmoid(double x)
 {
+  // 数值稳定的sigmoid实现
   if (x > 0)
     return 1.0 / (1.0 + exp(-x));
   else

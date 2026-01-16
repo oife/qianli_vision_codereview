@@ -12,7 +12,7 @@
 #include <thread>
 
 #include "io/ros2/ros2.hpp"
-#include "tasks/auto_aim/armor.hpp"
+#include "tasks/auto_aim/armor/armor.hpp"
 #include "tools/exiter/exiter.hpp"
 #include "tools/logger/logger.hpp"
 

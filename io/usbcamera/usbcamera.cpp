@@ -100,7 +100,8 @@ void USBCamera::open()
     return;
   }
   sharpness_ = cap_.get(cv::CAP_PROP_SHARPNESS);
-  cap_.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('M', 'J', 'P', 'G'));
+  // 使用 YUYV 编码，方便在部分分辨率下获取期望帧率
+  cap_.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('Y', 'U', 'Y', 'V'));
   cap_.set(cv::CAP_PROP_FPS, usb_frame_rate_);
   cap_.set(cv::CAP_PROP_AUTO_EXPOSURE, 1);
   cap_.set(cv::CAP_PROP_GAMMA, usb_gamma_);

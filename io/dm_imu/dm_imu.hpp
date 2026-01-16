@@ -1,4 +1,4 @@
-﻿#ifndef IO__Dm_Imu_HPP
+#ifndef IO__Dm_Imu_HPP
 #define IO__Dm_Imu_HPP
 
 #include <math.h>

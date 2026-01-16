@@ -10,9 +10,9 @@
 #include "io/camera/camera.hpp"
 #include "io/cboard/command.hpp"
 #include "io/usbcamera/usbcamera.hpp"
-#include "tasks/auto_aim/armor.hpp"
-#include "tasks/auto_aim/target.hpp"
-#include "tasks/auto_aim/yolo.hpp"
+#include "tasks/auto_aim/armor/armor.hpp"
+#include "tasks/auto_aim/target/target.hpp"
+#include "tasks/auto_aim/yolos/yolo.hpp"
 
 namespace omniperception
 {

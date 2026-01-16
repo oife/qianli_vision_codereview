@@ -8,7 +8,7 @@
 #include "decider.hpp"
 #include "detection.hpp"
 #include "io/usbcamera/usbcamera.hpp"
-#include "tasks/auto_aim/armor.hpp"
+#include "tasks/auto_aim/armor/armor.hpp"
 #include "tools/thread_pool/thread_pool.hpp"
 #include "tools/thread_safe_queue/thread_safe_queue.hpp"
 

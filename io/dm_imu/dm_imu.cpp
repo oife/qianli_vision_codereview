@@ -1,4 +1,10 @@
-﻿#include "dm_imu.hpp"
+/**
+ * @file dm_imu.cpp
+ * @brief DM IMU设备驱动实现
+ * @details 实现DM IMU设备的串口通信、数据解析、CRC校验和四元数插值功能
+ */
+
+#include "dm_imu.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -15,13 +21,9 @@
 namespace io
 {
 
-// DM IMU 专用 CRC16 —— 按照设备提供的查表算法实现
-// 对应用户给出的：
-//   const uint16_t CRC16_table[256] = { ... };
-//   uint16_t Get_CRC16(uint8_t *ptr, uint16_t len) { ... }
+// DM IMU 专用 CRC16
 namespace
 {
-// 设备文档提供的 CRC16 查表
 static const uint16_t DM_CRC16_TABLE[256] = {
   0x0000, 0x1021, 0x2042, 0x3063, 0x4084, 0x50A5, 0x60C6, 0x70E7, 0x8108, 0x9129,
   0xA14A, 0xB16B, 0xC18C, 0xD1AD, 0xE1CE, 0xF1EF, 0x1231, 0x0210, 0x3273, 0x2252,
@@ -50,7 +52,13 @@ static const uint16_t DM_CRC16_TABLE[256] = {
   0xEF1F, 0xFF3E, 0xCF5D, 0xDF7C, 0xAF9B, 0xBFBA, 0x8FD9, 0x9FF8, 0x6E17, 0x7E36,
   0x4E55, 0x5E74, 0x2E93, 0x3EB2, 0x0ED1, 0x1EF0};
 
-// 按照设备示例的 Get_CRC16 逻辑实现（接口保持与原 dm_crc16_ccitt 一致）
+/**
+ * @brief 计算DM IMU专用的CRC16校验值
+ * @param data 待校验的数据指针
+ * @param len 数据长度（字节数）
+ * @return 计算得到的CRC16校验值
+ * @details 使用CCITT标准的CRC16算法，配合DM_CRC16_TABLE查找表进行快速计算
+ */
 static uint16_t dm_crc16_ccitt(const uint8_t * data, uint16_t len)
 {
   uint16_t crc = 0xFFFF;
@@ -62,6 +70,10 @@ static uint16_t dm_crc16_ccitt(const uint8_t * data, uint16_t len)
 }
 }  // namespace
 
+/**
+ * @brief 构造函数：初始化DM IMU设备
+ * @details 初始化串口连接，启动数据接收线程，并从队列中预取两个数据点用于插值计算
+ */
 DM_IMU::DM_IMU() : queue_(5000)
 {
   init_serial();
@@ -71,6 +83,10 @@ DM_IMU::DM_IMU() : queue_(5000)
   tools::logger()->info("[DM_IMU] initialized");
 }
 
+/**
+ * @brief 析构函数：清理DM IMU资源
+ * @details 停止数据接收线程，等待线程结束，并关闭串口连接
+ */
 DM_IMU::~DM_IMU()
 {
   stop_thread_ = true;
@@ -82,6 +98,12 @@ DM_IMU::~DM_IMU()
   }
 }
 
+/**
+ * @brief 初始化串口连接
+ * @details 配置串口参数（端口、波特率、数据位、停止位等），打开串口连接
+ * @note 串口配置：/dev/ttyACM0, 921600波特率, 8数据位, 1停止位, 无校验, 无流控
+ * @exception 如果串口打开失败，程序将退出
+ */
 void DM_IMU::init_serial()
 {
   try {
@@ -105,6 +127,13 @@ void DM_IMU::init_serial()
   }
 }
 
+/**
+ * @brief IMU数据接收线程函数
+ * @details 在独立线程中持续从串口读取IMU数据帧，进行CRC校验，解析加速度、角速度和欧拉角数据，
+ *          并将其转换为四元数后推入队列。数据帧格式包含三个子帧：加速度、角速度和欧拉角，每个子帧都有独立的CRC校验。
+ * @note 帧头格式：0x55 0xAA 0xD8 0x01
+ * @note 如果CRC校验失败或帧头不正确，将跳过该数据帧并记录警告信息
+ */
 void DM_IMU::get_imu_data_thread()
 {
   while (!stop_thread_) {
@@ -121,16 +150,6 @@ void DM_IMU::get_imu_data_thread()
     {
       serial_.read((uint8_t *)(&receive_data.accx_u32), 57 - 4);
 
-      // // 调试：打印完整 57 字节原始数据帧，便于对照协议
-      // auto *raw = reinterpret_cast<uint8_t *>(&receive_data);
-      // std::string hex;
-      // hex.reserve(3 * 57);
-      // for (int i = 0; i < 57; ++i) {
-      //   hex += fmt::format("{:02X} ", raw[i]);
-      // }
-      // tools::logger()->info("[DM_IMU] raw frame (57B): {}", hex);
-
-      // CRC16 校验：每段数据域为 DATA[0..15]（头 + 3 个轴的 4 字节数据，共 16 字节）
       constexpr uint16_t CRC_DATA_LEN = 16;
 
       uint16_t crc1_calc =
@@ -185,6 +204,13 @@ void DM_IMU::get_imu_data_thread()
   }
 }
 
+/**
+ * @brief 根据指定时间戳获取IMU四元数（通过插值计算）
+ * @param timestamp 目标时间戳
+ * @return 对应时间戳的IMU姿态四元数
+ * @details 从队列中查找时间戳前后最近的两个数据点，使用球面线性插值（SLERP）计算目标时间戳的精确姿态。
+ *          如果目标时间戳在已有数据之后，会从队列中持续读取新数据直到找到合适的时间范围。
+ */
 Eigen::Quaterniond DM_IMU::imu_at(std::chrono::steady_clock::time_point timestamp)
 {
   if (data_behind_.timestamp < timestamp) data_ahead_ = data_behind_;

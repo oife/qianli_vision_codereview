@@ -1,113 +1,47 @@
 # 源代码说明
 
-本目录包含项目的主要可执行程序源代码文件。每个文件对应不同的功能模块或调试版本。
+本目录按功能分类存放主要可执行程序源代码文件。每个文件对应不同的功能模块或调试版本。
 
-## 自瞄相关程序
+## 目录速览
+- `standard/`：标准模式（含多线程与MPC变体）
+- `auto_aim/`：自瞄调试相关
+- `auto_buff/`：打符调试相关
+- `sentry/`：哨兵与全向感知相关
+- `uav/`：无人机模式相关
 
-### `auto_aim_debug_mpc.cpp`
-自瞄调试程序，使用MPC（模型预测控制）规划器。包含：
-- 使用Planner进行MPC轨迹规划
-- 可视化重投影调试（显示装甲板位置和瞄准点）
-- 数据绘图功能（Plotter）
-- 支持云台控制（Gimbal）
+## standard（标准模式）
+- `standard/standard.cpp`：标准自瞄程序；基础检测、追踪、瞄准，支持模式切换，使用CBoard通信。
+- `standard/standard_mpc.cpp`：MPC规划版；自瞄/打符模式切换，使用Planner进行MPC，云台控制。
+- `standard/mt_standard.cpp`：多线程版；自瞄与打符模式切换，多线程检测，CBoard通信。
 
-### `mt_auto_aim_debug.cpp`
-多线程自瞄调试程序。包含：
-- 多线程检测器（MultiThreadDetector）在独立线程中运行
-- 可视化调试功能（重投影显示、数据绘图）
-- 支持模式切换（idle/auto_aim等）
-- 使用CBoard进行通信
+## auto_aim（自瞄调试）
+- `auto_aim/auto_aim_debug_mpc.cpp`：自瞄调试（MPC）；MPC轨迹规划、重投影可视化、绘图、云台控制。
+- `auto_aim/mt_auto_aim_debug.cpp`：多线程自瞄调试；独立线程检测、重投影与绘图调试、模式切换、CBoard通信。
 
-### `standard.cpp`
-标准自瞄程序，基础功能版本。包含：
-- 基本的自瞄检测、追踪、瞄准流程
-- 支持模式切换
-- 使用CBoard进行通信
+## auto_buff（打符调试）
+- `auto_buff/auto_buff_debug_mpc.cpp`：打符调试（MPC）；MPC瞄准、能量机关可视化、绘图、云台控制。
+- `auto_buff/auto_buff_debug.cpp`：打符调试（CBoard）；基础打符检测/瞄准，可视化调试，使用CBoard通信。
 
-## 打符相关程序
+## sentry（哨兵与全向感知）
+- `sentry/sentry.cpp`：哨兵标准；自瞄逻辑、全向感知决策（Decider）、ROS2通信、多相机支持、装甲板过滤与优先级。
+- `sentry/sentry_debug.cpp`：哨兵调试；核心同上，增加重投影/绘图等可视化输出，显示追踪器与观测器数据。
+- `sentry/sentry_bp.cpp`：哨兵标准备份版；与 `sentry.cpp` 类似，部分功能注释。
+- `sentry/sentry_multithread.cpp`：哨兵多线程；多线程检测，全向感知器（Perceptron，4路USB相机），目标切换/丢失处理。
 
-### `auto_buff_debug_mpc.cpp`
-打符调试程序，使用MPC瞄准器。包含：
-- 使用MPC算法进行打符瞄准
-- 可视化调试（显示能量机关位置和预测点）
-- 数据绘图功能
-- 支持云台控制（Gimbal）
-
-### `auto_buff_debug.cpp`
-打符调试程序，使用CBoard通信。包含：
-- 基础打符检测和瞄准
-- 可视化调试功能
-- 使用CBoard而非Gimbal
-
-## 哨兵相关程序
-
-### `sentry.cpp`
-哨兵标准程序，包含全向感知功能。包含：
-- 自瞄核心逻辑
-- 全向感知决策（Decider）
-- ROS2通信
-- 支持多相机（USB相机和背相机）
-- 装甲板过滤和优先级设置
-
-### `sentry_debug.cpp`
-哨兵调试程序，包含可视化调试功能。包含：
-- 与sentry.cpp相同的核心功能
-- 额外的可视化调试输出（重投影、数据绘图）
-- 显示追踪器状态和观测器数据
-
-### `sentry_bp.cpp`
-哨兵标准程序（备份版本）。与sentry.cpp类似，但部分功能被注释。
-
-### `sentry_multithread.cpp`
-哨兵多线程程序，包含全向感知和感知器。包含：
-- 多线程检测
-- 全向感知器（Perceptron）支持4个USB相机
-- 目标切换逻辑
-- 支持切换目标、丢失目标等状态处理
-
-## 标准程序（支持多模式）
-
-### `standard_mpc.cpp`
-标准程序，使用MPC规划器，支持自瞄和打符模式切换。包含：
-- 自瞄模式：使用Planner进行MPC规划
-- 打符模式：支持小符和大符
-- 模式自动切换
-- 使用Gimbal进行云台控制
-
-### `mt_standard.cpp`
-多线程标准程序，支持自瞄和打符。包含：
-- 多线程检测
-- 自瞄和打符模式切换
-- 使用CBoard进行通信
-
-## 无人机相关程序
-
-### `uav.cpp`
-无人机程序，支持自瞄和打符模式切换。包含：
-- 自瞄模式：支持auto_aim和outpost模式
-- 打符模式：支持小符和大符
-- 模式自动切换
-- 使用CBoard进行通信
-
-### `uav_debug.cpp`
-无人机调试程序，包含可视化调试功能。包含：
-- 与uav.cpp相同的核心功能
-- 可视化调试输出（重投影、数据绘图）
-- 显示追踪器状态、观测器内部数据、卡方检验数据等
+## uav（无人机）
+- `uav/uav.cpp`：无人机模式；自瞄（auto_aim/outpost）与打符（小/大符）模式切换，自动模式管理，CBoard通信。
+- `uav/uav_debug.cpp`：无人机调试；同上核心，增加重投影/绘图，可视化追踪器与观测器内部数据、卡方检验等。
 
 ## 使用说明
-
-所有程序都支持通过命令行参数指定配置文件路径：
+所有程序支持通过命令行参数指定配置文件路径：
 ```bash
 ./程序名 [配置文件路径]
 ```
-
-大部分程序默认使用 `configs/sentry.yaml` 或相应的配置文件。使用 `--help` 或 `-h` 参数可以查看帮助信息。
+多数程序默认使用 `configs/sentry.yaml` 或相应配置。使用 `--help` / `-h` 查看更多选项。
 
 ## 程序分类
-
-- **调试版本**：文件名包含 `debug`，通常包含可视化调试功能和详细的数据输出
-- **标准版本**：生产环境使用的精简版本
-- **多线程版本**：文件名包含 `mt` 或 `multithread`，使用多线程提高性能
-- **MPC版本**：使用模型预测控制（MPC）算法进行轨迹规划
+- 调试版本：文件名含 `debug`，带可视化与详细输出
+- 标准版本：生产使用的精简版
+- 多线程版本：文件名含 `mt` 或 `multithread`
+- MPC版本：使用模型预测控制（MPC）进行规划
 

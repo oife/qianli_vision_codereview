@@ -20,7 +20,7 @@
 
 #include "io/camera/camera.hpp"
 #include "io/cboard/cboard.hpp"
-#include "tasks/auto_aim/solver.hpp"
+#include "tasks/auto_aim/solver/solver.hpp"
 #include "tools/exiter/exiter.hpp"
 #include "tools/img_tools/img_tools.hpp"
 #include "tools/logger/logger.hpp"

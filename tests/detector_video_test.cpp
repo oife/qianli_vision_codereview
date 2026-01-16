@@ -14,8 +14,8 @@
 #include <chrono>
 #include <opencv2/opencv.hpp>
 
-#include "tasks/auto_aim/detector.hpp"
-#include "tasks/auto_aim/yolo.hpp"
+#include "tasks/auto_aim/detector/detector.hpp"
+#include "tasks/auto_aim/yolos/yolo.hpp"
 #include "tools/exiter/exiter.hpp"
 #include "tools/img_tools/img_tools.hpp"
 #include "tools/plotter/plotter.hpp"

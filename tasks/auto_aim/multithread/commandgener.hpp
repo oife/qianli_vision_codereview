@@ -4,8 +4,8 @@
 #include <optional>
 
 #include "io/cboard/cboard.hpp"
-#include "tasks/auto_aim/shooter.hpp"
-#include "tasks/auto_aim/tracker.hpp"
+#include "tasks/auto_aim/shooter/shooter.hpp"
+#include "tasks/auto_aim/tracker/tracker.hpp"
 #include "tasks/omniperception/decider.hpp"
 #include "tools/plotter/plotter.hpp"
 

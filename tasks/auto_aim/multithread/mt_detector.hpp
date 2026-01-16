@@ -6,6 +6,8 @@
 #include <openvino/openvino.hpp>
 #include <tuple>
 
+#include "tasks/auto_aim/armor/armor.hpp"
+#include "tasks/auto_aim/yolos/yolo.hpp"
 #include "tasks/auto_aim/yolos/yolov5.hpp"
 #include "tools/logger/logger.hpp"
 #include "tools/thread_safe_queue/thread_safe_queue.hpp"
