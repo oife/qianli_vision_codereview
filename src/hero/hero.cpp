@@ -29,10 +29,10 @@ int main(int argc, char * argv[])
   io::Camera camera(config_path);
   
   // 初始化dm_imu
-  io::DM_IMU imu;
+  // io::DM_IMU imu;
   
   // 初始化gimbal
-  io::Gimbal gimbal(config_path);
+  // io::Gimbal gimbal(config_path);
 
   cv::Mat img;
   std::chrono::steady_clock::time_point t;
@@ -46,12 +46,12 @@ int main(int argc, char * argv[])
     camera.read(img, t);
     
     // 读取dm_imu数据（根据图像时间戳获取对应的IMU数据）
-    q = imu.imu_at(t);
+    // q = imu.imu_at(t);
     
     // 读取gimbal数据
     // gimbal_q = gimbal.q(t);  // 获取gimbal四元数（根据图像时间戳插值）
     // gimbal_state = gimbal.state();  // 获取gimbal状态（yaw, pitch, bullet_speed等）
-    gimbal_mode = gimbal.mode();  // 获取gimbal模式
+    // gimbal_mode = gimbal.mode();  // 获取gimbal模式
   }
 
   return 0;
