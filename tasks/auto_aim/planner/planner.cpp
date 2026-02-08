@@ -54,7 +54,7 @@ Planner::Planner(const std::string & config_path)
     max_yaw_acc_ = yaml["max_yaw_acc"] ? yaml["max_yaw_acc"].as<double>() : 500.0;     // 默认20 rad/s²
     max_pitch_vel_ = yaml["max_pitch_vel"] ? yaml["max_pitch_vel"].as<double>() : 100.0; // 默认10 rad/s
     max_pitch_acc_ = yaml["max_pitch_acc"] ? yaml["max_pitch_acc"].as<double>() : 500.0; // 默认20 rad/s²
-    jump_threshold_ = yaml["jump_threshold"] ? yaml["jump_threshold"].as<double>() : 0.5; // 默认0.5 rad
+    jump_threshold_ = yaml["jump_threshold"] ? yaml["jump_threshold"].as<double>() : 0.5; // 默认0.5 rad/s
     // 五次多项式求解器不需要MPC求解器
     yaw_solver_ = nullptr;
     pitch_solver_ = nullptr;
@@ -261,36 +261,77 @@ Trajectory Planner::get_trajectory(Target & target, double yaw0, double bullet_s
   return traj;
 }
 
-std::vector<int> Planner::detect_jumps(const Trajectory & traj, int axis)
+std::vector<Planner::JumpSegment> Planner::detect_jump_segments(const Trajectory & traj, int axis)
 {
-  std::vector<int> jump_points;
+  std::vector<JumpSegment> jump_segments;
   
-  // 检查相邻时间步之间的位置变化
+  int vel_axis = axis + 1;  // 速度轴索引（yaw轴的速度在索引1，pitch轴的速度在索引3）
+  
+  // 检测突变段：斜率（角速度）先突然变大然后快速变小，或先突然变小然后快速变大
+  // 计算角速度的变化率（角加速度）
+  int segment_start = -1;
+  bool in_segment = false;
+  double prev_vel = traj(vel_axis, 0);
+  double prev_accel = 0.0;
+  
   for (int i = 1; i < HORIZON; ++i) {
-    double pos_diff = std::abs(traj(axis, i) - traj(axis, i - 1));
+    double curr_vel = traj(vel_axis, i);
+    double curr_accel = curr_vel - prev_vel;  // 角速度的变化率（角加速度）
     
-    // 如果位置变化超过阈值，认为是突变点
-    if (pos_diff > jump_threshold_) {
-      jump_points.push_back(i);
+    // 检测突变模式开始：
+    // 模式1：角速度先突然变大（角加速度突然增大超过阈值）
+    // 模式2：角速度先突然变小（角加速度突然减小超过负阈值）
+    bool sudden_increase = (curr_accel > jump_threshold_) && (prev_accel <= jump_threshold_ * 0.5);
+    bool sudden_decrease = (curr_accel < -jump_threshold_) && (prev_accel >= -jump_threshold_ * 0.5);
+    
+    if ((sudden_increase || sudden_decrease) && !in_segment) {
+      // 开始新的突变段，起始点设为前一个时间步（突变开始前）
+      segment_start = std::max(0, i - 1);
+      in_segment = true;
+    }
+    
+    // 检测突变段结束：
+    // 如果角加速度从正变负（先增大后减小）或从负变正（先减小后增大），且变化回到正常范围
+    if (in_segment) {
+      bool sign_change = (prev_accel > jump_threshold_ * 0.3 && curr_accel < -jump_threshold_ * 0.3) ||
+                         (prev_accel < -jump_threshold_ * 0.3 && curr_accel > jump_threshold_ * 0.3);
+      bool back_to_normal = std::abs(curr_accel) < jump_threshold_ * 0.3;
+      
+      if (sign_change || (back_to_normal && i > segment_start + 2)) {
+        // 突变段结束，结束点设为当前时间步
+        int segment_end = std::min(HORIZON - 1, i);
+        jump_segments.push_back({segment_start, segment_end});
+        in_segment = false;
+        segment_start = -1;
     }
   }
   
-  return jump_points;
+    prev_vel = curr_vel;
+    prev_accel = curr_accel;
+  }
+  
+  // 如果突变段还未结束，将其结束点设为轨迹末尾
+  if (in_segment && segment_start >= 0) {
+    jump_segments.push_back({segment_start, HORIZON - 1});
+  }
+  
+  return jump_segments;
 }
 
 std::optional<std::tuple<Vector6d, int, int>> Planner::search_transition(
   const Trajectory & traj, int axis, int jump_idx, double v_max, double a_max)
 {
-  // 从大到小搜索偏移量（0.5周期 → 0.01周期）
-  const double max_offset = 0.5;  // 最大偏移量（周期数）
-  const double min_offset = 0.01; // 最小偏移量（周期数）
-  const double offset_step = 0.01; // 搜索步长（周期数）
+  // 从大到小搜索偏移量（0.5秒 → 0.01秒）
+  // 使用固定时间偏移，而不是周期比例（因为轨迹是离散时间步，没有明确的周期概念）
+  const double max_offset_time = 0.5;  // 最大偏移量（秒）
+  const double min_offset_time = 0.01; // 最小偏移量（秒）
+  const double offset_step_time = 0.01; // 搜索步长（秒）
   
   int vel_axis = axis + 1;  // 速度轴索引
   
   // 从最大偏移量开始搜索
-  for (double offset_cycles = max_offset; offset_cycles >= min_offset; offset_cycles -= offset_step) {
-    int offset = static_cast<int>(offset_cycles / DT);  // 转换为时间步数
+  for (double offset_time = max_offset_time; offset_time >= min_offset_time; offset_time -= offset_step_time) {
+    int offset = static_cast<int>(offset_time / DT);  // 转换为时间步数
     
     // 计算过渡段起止点
     int start_idx = std::max(0, jump_idx - offset);
@@ -335,13 +376,47 @@ std::optional<std::tuple<Vector6d, int, int>> Planner::search_transition(
     }
   }
   
-  // 未找到满足约束的过渡段
+  // 未找到满足约束的过渡段，返回最大时间的结果（即使不满足约束）
+  // 这样可以确保至少有一个过渡段，虽然可能不满足约束
+  double offset_time = max_offset_time;
+  int offset = static_cast<int>(offset_time / DT);
+  
+  int start_idx = std::max(0, jump_idx - offset);
+  int end_idx = std::min(HORIZON - 1, jump_idx + offset);
+  
+  // 确保有足够的空间
+  if (end_idx - start_idx < 2) {
   return std::nullopt;
+  }
+  
+  // 计算边界条件
+  QuinticPolynomialSolver::BoundaryCondition start;
+  start.pos = traj(axis, start_idx);
+  start.vel = traj(vel_axis, start_idx);
+  if (start_idx > 0 && start_idx < HORIZON - 1) {
+    start.acc = (traj(vel_axis, start_idx + 1) - traj(vel_axis, start_idx - 1)) / (2 * DT);
+  } else {
+    start.acc = 0.0;
+  }
+  
+  QuinticPolynomialSolver::BoundaryCondition end;
+  end.pos = traj(axis, end_idx);
+  end.vel = traj(vel_axis, end_idx);
+  if (end_idx > 0 && end_idx < HORIZON - 1) {
+    end.acc = (traj(vel_axis, end_idx + 1) - traj(vel_axis, end_idx - 1)) / (2 * DT);
+  } else {
+    end.acc = 0.0;
+  }
+  
+  double T = (end_idx - start_idx) * DT;
+  Vector6d coeffs = QuinticPolynomialSolver::solve(start, end, T);
+  
+  return std::make_tuple(coeffs, start_idx, end_idx);
 }
 
 bool Planner::smooth_jumps(
-  Trajectory & traj, int axis, const std::vector<int> & jump_points, double v_max,
-  double a_max)
+  const Trajectory & traj_original, Trajectory & traj_smoothed, int axis,
+  const std::vector<int> & jump_points, double v_max, double a_max)
 {
   if (jump_points.empty()) {
     return true;
@@ -354,8 +429,8 @@ bool Planner::smooth_jumps(
   for (auto it = jump_points.rbegin(); it != jump_points.rend(); ++it) {
     int jump_idx = *it;
     
-    // 搜索最优过渡段
-    auto result = search_transition(traj, axis, jump_idx, v_max, a_max);
+    // 搜索最优过渡段：使用原始轨迹计算边界条件
+    auto result = search_transition(traj_original, axis, jump_idx, v_max, a_max);
     
     if (result.has_value()) {
       auto [coeffs, start_idx, end_idx] = result.value();
@@ -363,13 +438,13 @@ bool Planner::smooth_jumps(
       // 计算过渡时间
       double T = (end_idx - start_idx) * DT;
       
-      // 用五次多项式替换过渡段内的轨迹
+      // 用五次多项式替换平滑后轨迹的过渡段
       for (int i = start_idx; i <= end_idx; ++i) {
         double t = (i - start_idx) * DT;  // 相对于起点的时间
         
-        // 更新位置和速度
-        traj(axis, i) = QuinticPolynomialSolver::evaluate_pos(coeffs, t);
-        traj(vel_axis, i) = QuinticPolynomialSolver::evaluate_vel(coeffs, t);
+        // 更新位置和速度（修改平滑后的轨迹副本）
+        traj_smoothed(axis, i) = QuinticPolynomialSolver::evaluate_pos(coeffs, t);
+        traj_smoothed(vel_axis, i) = QuinticPolynomialSolver::evaluate_vel(coeffs, t);
       }
     } else {
       // 无法找到满足约束的过渡段
@@ -432,58 +507,167 @@ Plan Planner::solve_with_mpc(const Trajectory & traj, double yaw0)
   return plan;
 }
 
-Plan Planner::solve_with_quintic(Trajectory & traj, double yaw0)
+Plan Planner::solve_with_quintic(const Trajectory & traj, double yaw0)
 {
-  // 检测并平滑yaw轴突变段
-  auto yaw_jumps = detect_jumps(traj, 0);
-  if (!yaw_jumps.empty()) {
-    smooth_jumps(traj, 0, yaw_jumps, max_yaw_vel_, max_yaw_acc_);
+  // 保存原始轨迹在HALF_HORIZON时刻的值（用于target_yaw和target_pitch）
+  double original_target_yaw = traj(0, HALF_HORIZON);
+  double original_target_pitch = traj(2, HALF_HORIZON);
+
+  // 检测yaw轴和pitch轴的突变段
+  auto yaw_segments = detect_jump_segments(traj, 0);
+  auto pitch_segments = detect_jump_segments(traj, 2);
+
+  // 查找包含HALF_HORIZON的突变段
+  std::optional<JumpSegment> yaw_segment_at_half = std::nullopt;
+  for (const auto & segment : yaw_segments) {
+    if (HALF_HORIZON >= segment.start_idx && HALF_HORIZON <= segment.end_idx) {
+      yaw_segment_at_half = segment;
+      break;
+    }
   }
 
-  // 检测并平滑pitch轴突变段
-  auto pitch_jumps = detect_jumps(traj, 2);
-  if (!pitch_jumps.empty()) {
-    smooth_jumps(traj, 2, pitch_jumps, max_pitch_vel_, max_pitch_acc_);
+  std::optional<JumpSegment> pitch_segment_at_half = std::nullopt;
+  for (const auto & segment : pitch_segments) {
+    if (HALF_HORIZON >= segment.start_idx && HALF_HORIZON <= segment.end_idx) {
+      pitch_segment_at_half = segment;
+      break;
+    }
   }
 
-  // 构建规划结果（直接使用平滑后的参考轨迹）
+  // 构建规划结果
   Plan plan;
   plan.control = true;  // 规划成功，启用控制
 
-  // 目标角度：参考轨迹在HALF_HORIZON时刻的值（0.5秒后）
-  plan.target_yaw = tools::limit_rad(traj(0, HALF_HORIZON) + yaw0);
-  plan.target_pitch = traj(2, HALF_HORIZON);
+  // 目标角度：使用原始轨迹在HALF_HORIZON时刻的值
+  plan.target_yaw = tools::limit_rad(original_target_yaw + yaw0);
+  plan.target_pitch = original_target_pitch;
 
-  // 五次多项式规划的状态：直接使用参考轨迹在HALF_HORIZON时刻的值
-  plan.yaw = tools::limit_rad(traj(0, HALF_HORIZON) + yaw0);
-  plan.yaw_vel = traj(1, HALF_HORIZON);
-  // 使用中心差分法计算加速度
-  if (HALF_HORIZON > 0 && HALF_HORIZON < HORIZON - 1) {
-    plan.yaw_acc = (traj(1, HALF_HORIZON + 1) - traj(1, HALF_HORIZON - 1)) / (2 * DT);
+  // 计算yaw轴的规划值
+  if (yaw_segment_at_half.has_value()) {
+    // 在突变段内：使用五次多项式连接起点和终点的状态
+    const auto & segment = yaw_segment_at_half.value();
+    int start_idx = segment.start_idx;
+    int end_idx = segment.end_idx;
+    
+    // 获取起点和终点的状态（位置、速度）
+    double start_pos = traj(0, start_idx);
+    double start_vel = traj(1, start_idx);
+    double end_pos = traj(0, end_idx);
+    double end_vel = traj(1, end_idx);
+    
+    // 使用中心差分法计算起点和终点的加速度
+    double start_acc = 0.0;
+    if (start_idx > 0 && start_idx < HORIZON - 1) {
+      start_acc = (traj(1, start_idx + 1) - traj(1, start_idx - 1)) / (2 * DT);
+    }
+    
+    double end_acc = 0.0;
+    if (end_idx > 0 && end_idx < HORIZON - 1) {
+      end_acc = (traj(1, end_idx + 1) - traj(1, end_idx - 1)) / (2 * DT);
+    }
+    
+    // 构建边界条件
+    QuinticPolynomialSolver::BoundaryCondition start;
+    start.pos = start_pos;
+    start.vel = start_vel;
+    start.acc = start_acc;
+    
+    QuinticPolynomialSolver::BoundaryCondition end;
+    end.pos = end_pos;
+    end.vel = end_vel;
+    end.acc = end_acc;
+    
+    // 计算过渡时间
+    double segment_duration = (end_idx - start_idx) * DT;
+    
+    // 求解五次多项式系数
+    Vector6d coeffs = QuinticPolynomialSolver::solve(start, end, segment_duration);
+    
+    // 计算HALF_HORIZON时刻在突变段内的相对时间
+    double t_in_segment = (HALF_HORIZON - start_idx) * DT;
+    t_in_segment = std::clamp(t_in_segment, 0.0, segment_duration);
+    
+    // 使用五次多项式计算位置、速度、加速度
+    plan.yaw = tools::limit_rad(QuinticPolynomialSolver::evaluate_pos(coeffs, t_in_segment) + yaw0);
+    plan.yaw_vel = QuinticPolynomialSolver::evaluate_vel(coeffs, t_in_segment);
+    plan.yaw_acc = QuinticPolynomialSolver::evaluate_acc(coeffs, t_in_segment);
   } else {
-    plan.yaw_acc = 0.0;
+    // 不在突变段内：使用原始轨迹的值（与target相同）
+    plan.yaw = tools::limit_rad(original_target_yaw + yaw0);
+    plan.yaw_vel = traj(1, HALF_HORIZON);
+    // 使用中心差分法计算加速度
+    if (HALF_HORIZON > 0 && HALF_HORIZON < HORIZON - 1) {
+      plan.yaw_acc = (traj(1, HALF_HORIZON + 1) - traj(1, HALF_HORIZON - 1)) / (2 * DT);
+    } else {
+      plan.yaw_acc = 0.0;
+    }
   }
 
-  plan.pitch = traj(2, HALF_HORIZON);
-  plan.pitch_vel = traj(3, HALF_HORIZON);
-  // 使用中心差分法计算加速度
-  if (HALF_HORIZON > 0 && HALF_HORIZON < HORIZON - 1) {
-    plan.pitch_acc = (traj(3, HALF_HORIZON + 1) - traj(3, HALF_HORIZON - 1)) / (2 * DT);
+  // 计算pitch轴的规划值
+  if (pitch_segment_at_half.has_value()) {
+    // 在突变段内：使用五次多项式连接起点和终点的状态
+    const auto & segment = pitch_segment_at_half.value();
+    int start_idx = segment.start_idx;
+    int end_idx = segment.end_idx;
+    
+    // 获取起点和终点的状态（位置、速度）
+    double start_pos = traj(2, start_idx);
+    double start_vel = traj(3, start_idx);
+    double end_pos = traj(2, end_idx);
+    double end_vel = traj(3, end_idx);
+    
+    // 使用中心差分法计算起点和终点的加速度
+    double start_acc = 0.0;
+    if (start_idx > 0 && start_idx < HORIZON - 1) {
+      start_acc = (traj(3, start_idx + 1) - traj(3, start_idx - 1)) / (2 * DT);
+    }
+    
+    double end_acc = 0.0;
+    if (end_idx > 0 && end_idx < HORIZON - 1) {
+      end_acc = (traj(3, end_idx + 1) - traj(3, end_idx - 1)) / (2 * DT);
+    }
+    
+    // 构建边界条件
+    QuinticPolynomialSolver::BoundaryCondition start;
+    start.pos = start_pos;
+    start.vel = start_vel;
+    start.acc = start_acc;
+    
+    QuinticPolynomialSolver::BoundaryCondition end;
+    end.pos = end_pos;
+    end.vel = end_vel;
+    end.acc = end_acc;
+    
+    // 计算过渡时间
+    double segment_duration = (end_idx - start_idx) * DT;
+    
+    // 求解五次多项式系数
+    Vector6d coeffs = QuinticPolynomialSolver::solve(start, end, segment_duration);
+    
+    // 计算HALF_HORIZON时刻在突变段内的相对时间
+    double t_in_segment = (HALF_HORIZON - start_idx) * DT;
+    t_in_segment = std::clamp(t_in_segment, 0.0, segment_duration);
+    
+    // 使用五次多项式计算位置、速度、加速度
+    plan.pitch = QuinticPolynomialSolver::evaluate_pos(coeffs, t_in_segment);
+    plan.pitch_vel = QuinticPolynomialSolver::evaluate_vel(coeffs, t_in_segment);
+    plan.pitch_acc = QuinticPolynomialSolver::evaluate_acc(coeffs, t_in_segment);
   } else {
-    plan.pitch_acc = 0.0;
+    // 不在突变段内：使用原始轨迹的值（与target相同）
+    plan.pitch = original_target_pitch;
+    plan.pitch_vel = traj(3, HALF_HORIZON);
+    // 使用中心差分法计算加速度
+    if (HALF_HORIZON > 0 && HALF_HORIZON < HORIZON - 1) {
+      plan.pitch_acc = (traj(3, HALF_HORIZON + 1) - traj(3, HALF_HORIZON - 1)) / (2 * DT);
+    } else {
+      plan.pitch_acc = 0.0;
+    }
   }
 
-  // 判断是否满足开火条件
-  // 对于五次多项式求解器，检查轨迹是否平滑（无突变）
-  auto shoot_offset_ = 2;  // 开火判断的时间偏移（2个时间步 = 0.02秒）
-  if (HALF_HORIZON + shoot_offset_ < HORIZON) {
-    // 检查轨迹跟踪误差（相对于参考轨迹本身，应该很小）
-    double yaw_error = std::abs(traj(0, HALF_HORIZON + shoot_offset_) - traj(0, HALF_HORIZON));
-    double pitch_error = std::abs(traj(2, HALF_HORIZON + shoot_offset_) - traj(2, HALF_HORIZON));
-    plan.fire = std::hypot(yaw_error, pitch_error) < fire_thresh_;
-  } else {
-    plan.fire = false;
-  }
+  // 如果在突变段内，不允许开火
+  bool is_yaw_in_segment = yaw_segment_at_half.has_value();
+  bool is_pitch_in_segment = pitch_segment_at_half.has_value();
+  plan.fire = !is_yaw_in_segment && !is_pitch_in_segment;
 
   return plan;
 }

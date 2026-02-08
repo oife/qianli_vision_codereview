@@ -112,7 +112,7 @@ private:
   double max_yaw_acc_;            // yaw轴最大角加速度（rad/s²）
   double max_pitch_vel_;          // pitch轴最大角速度（rad/s）
   double max_pitch_acc_;          // pitch轴最大角加速度（rad/s²）
-  double jump_threshold_;         // 突变检测阈值（位置变化量）
+  double jump_threshold_;         // 突变检测阈值（角速度变化量，rad/s）
 
   /**
    * @brief 初始化yaw轴MPC求解器
@@ -148,16 +148,27 @@ private:
   Trajectory get_trajectory(Target & target, double yaw0, double bullet_speed);
 
   /**
+   * @brief 突变段结构体，记录突变段的起止时间
+   */
+  struct JumpSegment
+  {
+    int start_idx;  // 突变段开始索引
+    int end_idx;    // 突变段结束索引
+  };
+
+  /**
    * @brief 检测参考轨迹中的突变段
+   * 突变段特征：斜率（角速度）先突然变大然后快速变小，或先突然变小然后快速变大
    * @param traj 参考轨迹矩阵
    * @param axis 轴索引（0=yaw, 2=pitch）
-   * @return 突变点索引列表
+   * @return 突变段列表，每个突变段包含起止索引
    */
-  std::vector<int> detect_jumps(const Trajectory & traj, int axis);
+  std::vector<JumpSegment> detect_jump_segments(const Trajectory & traj, int axis);
 
   /**
    * @brief 为突变段生成平滑过渡轨迹（使用五次多项式）
-   * @param traj 原始参考轨迹（会被修改）
+   * @param traj_original 原始参考轨迹
+   * @param traj_smoothed 平滑后的轨迹
    * @param axis 轴索引（0=yaw, 2=pitch）
    * @param jump_points 突变点索引列表
    * @param v_max 最大速度约束
@@ -165,8 +176,8 @@ private:
    * @return 是否成功生成过渡段
    */
   bool smooth_jumps(
-    Trajectory & traj, int axis, const std::vector<int> & jump_points, double v_max,
-    double a_max);
+    const Trajectory & traj_original, Trajectory & traj_smoothed, int axis,
+    const std::vector<int> & jump_points, double v_max, double a_max);
 
   /**
    * @brief 为单个突变点搜索最优过渡段
@@ -190,11 +201,11 @@ private:
 
   /**
    * @brief 使用五次多项式求解器进行规划
-   * @param traj 参考轨迹（会被修改，用于平滑突变段）
+   * @param traj 参考轨迹（不会被修改，内部会创建副本进行平滑处理）
    * @param yaw0 初始yaw角度
    * @return Plan 规划结果
    */
-  Plan solve_with_quintic(Trajectory & traj, double yaw0);
+  Plan solve_with_quintic(const Trajectory & traj, double yaw0);
 };
 
 }  // namespace auto_aim

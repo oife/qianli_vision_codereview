@@ -22,8 +22,8 @@ Vector6d QuinticPolynomialSolver::solve(
   // 构建线性方程组 A * coeffs = b
   // 其中 coeffs = [a0, a1, a2, a3, a4, a5]^T
 
-  Eigen::Matrix6d A;
-  Eigen::Vector6d b;
+  Eigen::Matrix<double, 6, 6> A;
+  Vector6d b;
 
   double T2 = T * T;
   double T3 = T2 * T;
