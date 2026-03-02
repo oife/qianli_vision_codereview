@@ -6,6 +6,7 @@
 
 #include <Eigen/Geometry>
 #include <array>
+#include <atomic>
 #include <fstream>
 #include <initializer_list>
 #include <iostream>

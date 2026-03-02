@@ -39,8 +39,8 @@ int main(int argc, char * argv[])
   tools::Exiter exiter;
 
   io::Camera camera(config_path);
-  auto_aim::Detector detector(config_path, true);
-  auto_aim::YOLO yolo(config_path, true);
+  auto_aim::Detector detector(config_path, false);
+  auto_aim::YOLO yolo(config_path, false);
 
   std::chrono::steady_clock::time_point timestamp;
 
@@ -89,8 +89,8 @@ int main(int argc, char * argv[])
       fps_start_time = std::chrono::steady_clock::now();
     }
 
-    auto key = cv::waitKey(1);  // 改为1ms，减少等待时间对FPS的影响
-    if (key == 'q') break;
+    // auto key = cv::waitKey(1);
+    // if (key == 'q') break;
   }
 
   return 0;

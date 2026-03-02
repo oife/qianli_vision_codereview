@@ -1,0 +1,72 @@
+enemy_color: "red"
+
+#####-----神经网络参数-----#####
+yolo_name: yolo26n
+yolo26n_model_path: assets/best_fp32.onnx
+classify_model: assets/tiny_resnet.onnx
+device: GPU
+min_confidence: 0.25
+
+#####-----ROI-----#####
+roi:
+  x: 420
+  y: 50
+  width: 600
+  height: 600
+
+use_roi: false
+
+#####-----传统方法参数-----#####
+threshold: 150
+max_angle_error: 45
+min_lightbar_ratio: 1.5
+max_lightbar_ratio: 20
+min_lightbar_length: 8
+min_armor_ratio: 1
+max_armor_ratio: 5
+max_side_ratio: 1.5
+max_rectangular_error: 25
+
+#####-----tracker参数-----#####
+min_detect_count: 5
+max_temp_lost_count: 15
+outpost_max_temp_lost_count: 75
+
+#####-----aimer参数-----#####
+yaw_offset: 0
+pitch_offset: 0
+comming_angle: 60
+leaving_angle: 20
+decision_speed: 8
+high_speed_delay_time: 0.030
+low_speed_delay_time: 0.015
+
+#####-----shooter参数-----#####
+first_tolerance: 3
+second_tolerance: 2
+judge_distance: 2
+auto_fire: true
+
+#####-----工业相机参数-----#####
+camera_name: "hikrobot"
+exposure_ms: 8
+gain: 5.0
+vid_pid: "2bdf:0001"
+width: 640
+height: 640
+
+#####-----标定参数（从demo.yaml复制）-----#####
+R_gimbal2imubody: [-1, 0, 0, 0, -1, 0, 0, 0, 1]
+camera_matrix: [1818.3669452465165, 0, 751.06226574703498, 0, 1822.494494078506, 530.43671556112133, 0, 0, 1]
+distort_coeffs: [-0.077944626599568856, 0.15447826031486889, -0.0025714394278524674, 0.00083016311301273629, 0]
+R_camera2gimbal: [-0.0083195760046954614, 0.010498791137270739, 0.99991027599468041, -0.99960756138647755, -0.026835747568381807, -0.0080352891314148939, 0.026748978935305992, -0.99958472279097077, 0.010717933047771133]
+t_camera2gimbal: [0.094969301833534511, 0.095006290298006682, 0.050987066291756609]
+
+#####-----planner-----#####
+fire_thresh: 0.003
+max_yaw_acc: 50
+Q_yaw: [9e6, 0]
+R_yaw: [1]
+max_pitch_acc: 100
+Q_pitch: [9e6, 0]
+R_pitch: [1]

@@ -9,6 +9,7 @@ namespace auto_aim
 
 // 定义6维向量类型（五次多项式有6个系数）
 using Vector6d = Eigen::Matrix<double, 6, 1>;
+using Matrix6d = Eigen::Matrix<double, 6, 6>;
 
 /**
  * @brief 五次多项式求解器

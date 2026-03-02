@@ -32,6 +32,7 @@ private:
   ov::Core core_;
   ov::CompiledModel compiled_model_;
   std::string device_;
+  std::string yolo_name_;
   YOLO yolo_;
 
   tools::ThreadSafeQueue<

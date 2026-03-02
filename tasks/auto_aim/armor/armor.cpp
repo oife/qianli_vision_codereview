@@ -36,7 +36,7 @@ Lightbar::Lightbar(const cv::RotatedRect & rotated_rect, std::size_t id)
 }
 
 Armor::Armor(const Lightbar & left, const Lightbar & right)
-: left(left), right(right), duplicated(false)
+: left(left), right(right), duplicated(false), kpt_visibility(4, 1.0f)
 {
   // 设置颜色和中心点
   color = left.color;
@@ -67,7 +67,8 @@ Armor::Armor(const Lightbar & left, const Lightbar & right)
 
 Armor::Armor(
   int class_id, float confidence, const cv::Rect & box, std::vector<cv::Point2f> armor_keypoints)
-: class_id(class_id), confidence(confidence), box(box), points(armor_keypoints)
+: class_id(class_id), confidence(confidence), box(box), points(armor_keypoints),
+  kpt_visibility(4, 1.0f)
 {
   // 计算中心点（四个角点的平均值）
   center = (armor_keypoints[0] + armor_keypoints[1] + armor_keypoints[2] + armor_keypoints[3]) / 4;
@@ -117,7 +118,8 @@ Armor::Armor(
 Armor::Armor(
   int class_id, float confidence, const cv::Rect & box, std::vector<cv::Point2f> armor_keypoints,
   cv::Point2f offset)
-: class_id(class_id), confidence(confidence), box(box), points(armor_keypoints)
+: class_id(class_id), confidence(confidence), box(box), points(armor_keypoints),
+  kpt_visibility(4, 1.0f)
 {
   // 将ROI坐标系下的关键点转换到原图坐标系
   std::transform(
@@ -175,7 +177,7 @@ Armor::Armor(
 Armor::Armor(
   int color_id, int num_id, float confidence, const cv::Rect & box,
   std::vector<cv::Point2f> armor_keypoints)
-: confidence(confidence), box(box), points(armor_keypoints)
+: confidence(confidence), box(box), points(armor_keypoints), kpt_visibility(4, 1.0f)
 {
   // 计算中心点（四个角点的平均值）
   center = (armor_keypoints[0] + armor_keypoints[1] + armor_keypoints[2] + armor_keypoints[3]) / 4;
@@ -223,7 +225,7 @@ Armor::Armor(
 Armor::Armor(
   int color_id, int num_id, float confidence, const cv::Rect & box,
   std::vector<cv::Point2f> armor_keypoints, cv::Point2f offset)
-: confidence(confidence), box(box), points(armor_keypoints)
+: confidence(confidence), box(box), points(armor_keypoints), kpt_visibility(4, 1.0f)
 {
   // 将ROI坐标系下的关键点转换到原图坐标系
   std::transform(
