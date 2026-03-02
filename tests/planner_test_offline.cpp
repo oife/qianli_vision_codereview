@@ -24,8 +24,8 @@ using namespace std::chrono_literals;
 
 const std::string keys =
   "{help h usage ? |     | 输出命令行参数说明    }"
-  "{d              | 3.0 | Target距离(m)       }"
-  "{w              | 5.0 | Target角速度(rad/s) }"
+  "{d              | 1.0 | Target距离(m)       }"
+  "{w              | 3.0 | Target角速度(rad/s) }"
   "{@config-path   |     | yaml配置文件路径     }";
 
 int main(int argc, char * argv[])

@@ -97,8 +97,8 @@ Q_pitch: [9e6, 0]
 R_pitch: [1]
 
 # 五次多项式求解器参数（仅在solver_type="quintic_poly"时使用）
-max_yaw_vel: 10.0      # yaw轴最大角速度（rad/s）
-max_yaw_acc: 50.0      # yaw轴最大角加速度（rad/s²）
+max_yaw_vel: 3.0      # yaw轴最大角速度（rad/s）
+max_yaw_acc: 20.0      # yaw轴最大角加速度（rad/s²）
 max_pitch_vel: 10.0    # pitch轴最大角速度（rad/s）
 max_pitch_acc: 100.0   # pitch轴最大角加速度（rad/s²）
 jump_threshold: 0.05     # 突变检测阈值（rad/s），相邻时间步角速度（斜率）变化超过此值则认为是突变

@@ -5,7 +5,6 @@
 #include <list>
 #include <optional>
 #include <vector>
-#include <tuple>
 
 #include "tasks/auto_aim/target/target.hpp"
 #include "tasks/auto_aim/planner/quintic_polynomial/quintic_polynomial.hpp"
@@ -164,32 +163,6 @@ private:
    * @return 突变段列表，每个突变段包含起止索引
    */
   std::vector<JumpSegment> detect_jump_segments(const Trajectory & traj, int axis);
-
-  /**
-   * @brief 为突变段生成平滑过渡轨迹（使用五次多项式）
-   * @param traj_original 原始参考轨迹
-   * @param traj_smoothed 平滑后的轨迹
-   * @param axis 轴索引（0=yaw, 2=pitch）
-   * @param jump_points 突变点索引列表
-   * @param v_max 最大速度约束
-   * @param a_max 最大加速度约束
-   * @return 是否成功生成过渡段
-   */
-  bool smooth_jumps(
-    const Trajectory & traj_original, Trajectory & traj_smoothed, int axis,
-    const std::vector<int> & jump_points, double v_max, double a_max);
-
-  /**
-   * @brief 为单个突变点搜索最优过渡段
-   * @param traj 参考轨迹
-   * @param axis 轴索引
-   * @param jump_idx 突变点索引
-   * @param v_max 最大速度约束
-   * @param a_max 最大加速度约束
-   * @return 成功时返回过渡段系数和起止索引，失败时返回空
-   */
-  std::optional<std::tuple<Vector6d, int, int>> search_transition(
-    const Trajectory & traj, int axis, int jump_idx, double v_max, double a_max);
 
   /**
    * @brief 使用MPC求解器进行规划

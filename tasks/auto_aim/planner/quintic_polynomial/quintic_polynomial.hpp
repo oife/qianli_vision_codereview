@@ -64,13 +64,13 @@ public:
   static double evaluate_acc(const Vector6d & coeffs, double t);
 
   /**
-   * @brief 验证过渡段是否满足速度和加速度约束
+   * @brief 验证过渡段是否同时满足速度与加速度约束（和的关系）
    * @param coeffs 多项式系数
    * @param T 过渡时间
    * @param v_max 最大速度约束
    * @param a_max 最大加速度约束
    * @param sample_num 采样点数（默认200）
-   * @return 如果满足约束返回true，否则返回false
+   * @return 速度与加速度均满足约束时返回true，否则返回false
    */
   static bool check_constraints(
     const Vector6d & coeffs, double T, double v_max, double a_max,

@@ -92,15 +92,14 @@ double QuinticPolynomialSolver::evaluate_acc(const Vector6d & coeffs, double t)
 bool QuinticPolynomialSolver::check_constraints(
   const Vector6d & coeffs, double T, double v_max, double a_max, int sample_num)
 {
-  // 在过渡段内均匀采样检查约束
+  // 在过渡段内均匀采样检查约束：需同时满足速度限制与加速度限制（和的关系）
   for (int i = 0; i <= sample_num; ++i) {
     double t = T * i / sample_num;
     double vel = std::abs(evaluate_vel(coeffs, t));
     double acc = std::abs(evaluate_acc(coeffs, t));
 
-    if (vel > v_max || acc > a_max) {
-      return false;
-    }
+    if (vel > v_max) return false;
+    if (acc > a_max) return false;
   }
   return true;
 }
