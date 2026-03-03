@@ -7,7 +7,7 @@
 
 namespace auto_aim
 {
-class OpenVINOBackend : public Backend
+class OpenVINOBackend : public BackendBase
 {
 public:
   explicit OpenVINOBackend(const std::string & config_path);
@@ -15,13 +15,12 @@ public:
 
   bool init(const std::string & model_path) override;
   cv::Mat infer(const cv::Mat & input) override;
-  cv::Size get_input_size() const override;
+  cv::Size get_name() const override;
 
 private:
   ov::Core core_;
   ov::CompiledModel compiled_model_;
   std::string device_;
-  cv::Size input_size_{416, 416};
 };
 
 }  // namespace auto_aim

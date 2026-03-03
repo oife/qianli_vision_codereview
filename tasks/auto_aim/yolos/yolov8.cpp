@@ -40,27 +40,15 @@ YOLOV8::YOLOV8(const std::string & config_path, bool debug)
   save_path_ = "imgs";
   std::filesystem::create_directory(save_path_);
 
-  auto model = core_.read_model(model_path_);
-  ov::preprocess::PrePostProcessor ppp(model);
-  auto & input = ppp.input();
+  std::string backend_type = yaml["backend"].as<std::string>("openvino");
 
-  input.tensor()
-    .set_element_type(ov::element::u8)
-    .set_shape({1, 416, 416, 3})
-    .set_layout("NHWC")
-    .set_color_format(ov::preprocess::ColorFormat::BGR);
-
-  input.model().set_layout("NCHW");
-
-  input.preprocess()
-    .convert_element_type(ov::element::f32)
-    .convert_color(ov::preprocess::ColorFormat::RGB)
-    .scale(255.0);
-
-  // TODO: ov::hint::performance_mode(ov::hint::PerformanceMode::LATENCY)
-  model = ppp.build();
-  compiled_model_ = core_.compile_model(
-    model, device_, ov::hint::performance_mode(ov::hint::PerformanceMode::LATENCY));
+  backend_ = create_backend(backend_type, config_path);
+  if (!backend_) {
+    throw std::runtime_error("Unable to create backend: " + backend_type);
+  }
+  if (!backend_->init(model_path_)) {
+    throw std::runtime_error("Backend initializing failed.");
+  }
 }
 
 /**
@@ -89,28 +77,21 @@ std::list<Armor> YOLOV8::detect(const cv::Mat & raw_img, int frame_count)
     bgr_img = raw_img;
   }
 
+  auto input_size = backend_->get_input_size();
+
   // 计算缩放比例，保持宽高比
-  auto x_scale = static_cast<double>(416) / bgr_img.rows;
-  auto y_scale = static_cast<double>(416) / bgr_img.cols;
+  auto x_scale = static_cast<double>(input_size.width) / bgr_img.rows;
+  auto y_scale = static_cast<double>(input_size.height) / bgr_img.cols;
   auto scale = std::min(x_scale, y_scale);
   auto h = static_cast<int>(bgr_img.rows * scale);
   auto w = static_cast<int>(bgr_img.cols * scale);
 
   // 图像预处理：缩放到416x416，并填充到模型输入尺寸
-  auto input = cv::Mat(416, 416, CV_8UC3, cv::Scalar(0, 0, 0));
+  auto input = cv::Mat(input_size, CV_8UC3, cv::Scalar(0, 0, 0));
   auto roi = cv::Rect(0, 0, w, h);
   cv::resize(bgr_img, input(roi), {w, h});
-  ov::Tensor input_tensor(ov::element::u8, {1, 416, 416, 3}, input.data);
 
-  // 模型推理
-  auto infer_request = compiled_model_.create_infer_request();
-  infer_request.set_input_tensor(input_tensor);
-  infer_request.infer();
-
-  // 获取模型输出
-  auto output_tensor = infer_request.get_output_tensor();
-  auto output_shape = output_tensor.get_shape();
-  cv::Mat output(output_shape[1], output_shape[2], CV_32F, output_tensor.data());
+  cv::Mat output = backend_->infer(input);
 
   return parse(scale, output, raw_img, frame_count);
 }

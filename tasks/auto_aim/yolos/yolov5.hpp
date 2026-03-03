@@ -3,11 +3,11 @@
 
 #include <list>
 #include <opencv2/opencv.hpp>
-#include <openvino/openvino.hpp>
 #include <string>
 #include <vector>
 
 #include "tasks/auto_aim/armor/armor.hpp"
+#include "tasks/auto_aim/backend/backend.hpp"
 #include "tasks/auto_aim/detector/detector.hpp"
 #include "tasks/auto_aim/yolos/yolo.hpp"
 
@@ -16,7 +16,7 @@ namespace auto_aim
 /**
  * @brief YOLOV5检测器实现类
  * 
- * 基于OpenVINO实现的YOLOV5目标检测器，用于检测图像中的装甲板
+ * YOLOV5目标检测器，用于检测图像中的装甲板
  * 支持ROI区域裁剪、传统方法二次矫正角点等功能
  */
 class YOLOV5 : public YOLOBase
@@ -49,28 +49,28 @@ public:
     double scale, cv::Mat & output, const cv::Mat & bgr_img, int frame_count) override;
 
 private:
-  std::string device_;        ///< 推理设备（CPU/GPU等）
-  std::string model_path_;   ///< 模型文件路径
-  std::string save_path_;    ///< 保存路径
-  std::string debug_path_;   ///< 调试路径
-  bool debug_;               ///< 是否开启调试模式
-  bool use_roi_;             ///< 是否使用ROI区域裁剪
-  bool use_traditional_;     ///< 是否使用传统方法二次矫正角点
+  std::string device_;      ///< 推理设备（CPU/GPU等）
+  std::string model_path_;  ///< 模型文件路径
+  std::string save_path_;   ///< 保存路径
+  std::string debug_path_;  ///< 调试路径
+  bool debug_;              ///< 是否开启调试模式
+  bool use_roi_;            ///< 是否使用ROI区域裁剪
+  bool use_traditional_;    ///< 是否使用传统方法二次矫正角点
 
-  const int class_num_ = 13;              ///< 类别数量
-  const float nms_threshold_ = 0.3;      ///< NMS阈值
-  const float score_threshold_ = 0.7;    ///< 置信度阈值
-  double min_confidence_;                ///< 最小置信度
-  double binary_threshold_;              ///< 二值化阈值
+  const int class_num_ = 13;           ///< 类别数量
+  const float nms_threshold_ = 0.3;    ///< NMS阈值
+  const float score_threshold_ = 0.7;  ///< 置信度阈值
+  double min_confidence_;              ///< 最小置信度
+  double binary_threshold_;            ///< 二值化阈值
 
-  ov::Core core_;                        ///< OpenVINO核心对象
-  ov::CompiledModel compiled_model_;     ///< 编译后的模型
+  ov::Core core_;                     ///< OpenVINO核心对象
+  ov::CompiledModel compiled_model_;  ///< 编译后的模型
 
-  cv::Rect roi_;                         ///< ROI区域
-  cv::Point2f offset_;                   ///< ROI偏移量
-  cv::Mat tmp_img_;                      ///< 临时图像存储
+  cv::Rect roi_;        ///< ROI区域
+  cv::Point2f offset_;  ///< ROI偏移量
+  cv::Mat tmp_img_;     ///< 临时图像存储
 
-  Detector detector_;                    ///< 传统检测器，用于二次矫正角点
+  Detector detector_;  ///< 传统检测器，用于二次矫正角点
   friend class MultiThreadDetector;
 
   /**
