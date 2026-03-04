@@ -34,14 +34,6 @@ YOLOV5::YOLOV5(const std::string & config_path, bool debug)
 
   ModelConfig config;
   config.input_size = cv::Size(640, 640);
-  config.padding_color = cv::Scalar(0, 0, 0);
-  config.normalize = true;
-  config.normalize_mean[0] = 0.0f;
-  config.normalize_mean[1] = 0.0f;
-  config.normalize_mean[2] = 0.0f;
-  config.normalize_std[0] = 1.0f / 255.0f;
-  config.normalize_std[1] = 1.0f / 255.0f;
-  config.normalize_std[2] = 1.0f / 255.0f;
 
   if (!backend_.init(model_path_, config)) {
     throw std::runtime_error("Backend initializing failed");

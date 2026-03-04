@@ -3,14 +3,13 @@
 
 #include <list>
 #include <opencv2/opencv.hpp>
-#include <openvino/openvino.hpp>
 #include <string>
 #include <vector>
 
 #include "tasks/auto_aim/armor/armor.hpp"
-#include "tasks/auto_aim/classifier/classifier.hpp"
-#include "tasks/auto_aim/detector/detector.hpp"
-#include "tasks/auto_aim/yolos/backend/backend.hpp"
+#include "tasks/auto_aim/backend/backend.hpp"
+// #include "tasks/auto_aim/classifier/classifier.hpp"
+// #include "tasks/auto_aim/detector/detector.hpp"
 #include "tasks/auto_aim/yolos/yolo.hpp"
 
 namespace auto_aim
@@ -68,7 +67,7 @@ private:
   double min_confidence_;              ///< 最小置信度
   double binary_threshold_;            ///< 二值化阈值
 
-  std::shared_ptr<Backend> backend_;
+  Backend backend_;
 
   cv::Rect roi_;        ///< ROI区域
   cv::Point2f offset_;  ///< ROI偏移量

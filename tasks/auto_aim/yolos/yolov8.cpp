@@ -8,7 +8,7 @@
 #include <filesystem>
 #include <random>
 
-#include "tasks/auto_aim/classifier/classifier.hpp"
+// #include "tasks/auto_aim/classifier/classifier.hpp"
 #include "tools/img_tools/img_tools.hpp"
 #include "tools/logger/logger.hpp"
 
@@ -20,7 +20,7 @@ namespace auto_aim
  * @param debug 是否开启调试模式
  */
 YOLOV8::YOLOV8(const std::string & config_path, bool debug)
-: classifier_(config_path), detector_(config_path), debug_(debug)
+: classifier_(config_path), detector_(config_path), debug_(debug), backend_(config_path)
 {
   auto yaml = YAML::LoadFile(config_path);
 
@@ -40,14 +40,19 @@ YOLOV8::YOLOV8(const std::string & config_path, bool debug)
   save_path_ = "imgs";
   std::filesystem::create_directory(save_path_);
 
-  std::string backend_type = yaml["backend"].as<std::string>("openvino");
+  ModelConfig config;
+  config.input_size = cv::Size(416, 416);
+  config.padding_color = cv::Scalar(0, 0, 0);
+  config.normalize = true;
+  config.normalize_mean[0] = 0.0f;
+  config.normalize_mean[1] = 0.0f;
+  config.normalize_mean[2] = 0.0f;
+  config.normalize_std[0] = 1.0f / 255.0f;
+  config.normalize_std[1] = 1.0f / 255.0f;
+  config.normalize_std[2] = 1.0f / 255.0f;
 
-  backend_ = create_backend(backend_type, config_path);
-  if (!backend_) {
-    throw std::runtime_error("Unable to create backend: " + backend_type);
-  }
-  if (!backend_->init(model_path_)) {
-    throw std::runtime_error("Backend initializing failed.");
+  if (!backend_.init(model_path_, config)) {
+    throw std::runtime_error("Backend initializing failed");
   }
 }
 
@@ -77,21 +82,9 @@ std::list<Armor> YOLOV8::detect(const cv::Mat & raw_img, int frame_count)
     bgr_img = raw_img;
   }
 
-  auto input_size = backend_->get_input_size();
-
-  // 计算缩放比例，保持宽高比
-  auto x_scale = static_cast<double>(input_size.width) / bgr_img.rows;
-  auto y_scale = static_cast<double>(input_size.height) / bgr_img.cols;
-  auto scale = std::min(x_scale, y_scale);
-  auto h = static_cast<int>(bgr_img.rows * scale);
-  auto w = static_cast<int>(bgr_img.cols * scale);
-
-  // 图像预处理：缩放到416x416，并填充到模型输入尺寸
-  auto input = cv::Mat(input_size, CV_8UC3, cv::Scalar(0, 0, 0));
-  auto roi = cv::Rect(0, 0, w, h);
-  cv::resize(bgr_img, input(roi), {w, h});
-
-  cv::Mat output = backend_->infer(input);
+  double scale;
+  backend_.preprocess(bgr_img, scale);
+  cv::Mat output = backend_.infer(bgr_img);
 
   return parse(scale, output, raw_img, frame_count);
 }

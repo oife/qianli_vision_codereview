@@ -53,9 +53,9 @@ bool OpenVINOBackend::init(const std::string & model_path, const ModelConfig & m
   }
 }
 
-cv::Mat OpenVINOBackend::infer(const cv::Mat & input)
+bool OpenVINOBackend::infer(const cv::Mat & input, cv::Mat & output) const
 {
-  if (input.empty()) return cv::Mat();
+  if (input.empty()) return false;
   try {
     ov::Tensor input_tensor(
       ov::element::u8,
@@ -63,15 +63,15 @@ cv::Mat OpenVINOBackend::infer(const cv::Mat & input)
        static_cast<size_t>(model_config_.input_size.width), 3},
       const_cast<uchar *>(input.data));
 
-    auto infer_request = compiled_model_.create_infer_request();
-    infer_request.set_input_tensor(input_tensor);
-    infer_request.infer();
+    infer_request_ = compiled_model_.create_infer_request();
+    infer_request_.set_input_tensor(input_tensor);
+    infer_request_.infer();
 
-    auto output_tensor = infer_request.get_output_tensor();
+    output_tensor_ = infer_request.get_output_tensor();
     auto output_shape = output_tensor.get_shape();
 
-    cv::Mat output(output_shape[1], output_shape[2], CV_32F, output_tensor.data());
-    return output.clone();
+    output = cv::Mat(output_shape[1], output_shape[2], CV_32F, output_tensor.data());
+    return true;
   } catch (const std::exception & e) {
     tools::logger()->error("OpenVINO推理失败：{}", e.what());
   }

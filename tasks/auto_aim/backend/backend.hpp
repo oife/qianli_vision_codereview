@@ -6,8 +6,8 @@
 #include <vector>
 
 // TODO: Just for debug, remember to remove it.
-// #define TENSORRT_AVAILABLE
-#define OPENVINO_AVAILABLE
+#define TENSORRT_AVAILABLE
+// #define OPENVINO_AVAILABLE
 
 namespace auto_aim
 {
@@ -16,16 +16,7 @@ struct ModelConfig
   cv::Size input_size{640, 640};
   cv::Scalar padding_color{0, 0, 0};
   bool normalize{true};
-  float normalize_mean[3]{0.0f, 0.0f, 0.0f};
-  float normalize_std[3]{1.0f / 225.0f, 1.0f / 225.0f, 1.0f / 225.0f};
   bool rgb_input{true};
-  bool keep_aspect_ratio{true};
-
-  ModelConfig() = default;
-  ModelConfig(cv::Size size, bool rgb = true, bool keep_ratio = true)
-  : input_size(size), rgb_input(rgb), keep_aspect_ratio(keep_ratio)
-  {
-  }
 };
 
 /**
@@ -52,25 +43,36 @@ public:
   /**
    * @brief 模型推理
    * @param input 输入图像（已完成预处理）
-   * @return 推理输出特征图
+   * @param output 推理输出特征图
    */
-  virtual cv::Mat infer(const cv::Mat & input) = 0;
+  virtual bool infer(const cv::Mat & input, cv::Mat & output) const = 0;
 
   /**
    * @brief 预处理图像
    * @param img 输入图像
+   * @param target 输出图像
    * @param scale 返回的缩放比例
-   * @param pad_top 返回的上方填充
-   * @param pad_left 返回的左方填充
    * @return 预处理后的图像
    */
-  void preprocess(const cv::Mat & img, double & scale) const;
+  bool preprocess(const cv::Mat & img, cv::Mat & target, double & scale) const;
+
+  /**
+   * @brief 完整执行预处理到推理的全流程
+   * @param img 输入图像
+   * @param target 输出图像
+   * @param scale 返回的缩放比例
+   */
+  bool execute(const cv::Mat & img, cv::Mat & target, double & scale) const;
 
   /**
    * @brief 获取模型配置
-   * @return 模型配置
    */
   const ModelConfig & get_model_config() const { return model_config_; }
+
+  /**
+   * @brief 获取模型输出尺寸
+   */
+  virtual cv::Size get_output_size() const = 0;
 
   /**
    * @brief 获取后端名称
@@ -109,7 +111,7 @@ public:
    * @param input 输入图像（已完成预处理）
    * @return 推理输出特征图
    */
-  cv::Mat infer(const cv::Mat & input);
+  bool infer(const cv::Mat & input, cv::Mat & output) const;
 
   /**
    * @brief 预处理图像
@@ -119,7 +121,15 @@ public:
    * @param pad_left 返回的左方填充
    * @return 预处理后的图像
    */
-  cv::Mat preprocess(const cv::Mat & img, double & scale);
+  bool preprocess(const cv::Mat & img, cv::Mat target, double & scale) const;
+
+  /**
+   * @brief 完整执行预处理到推理的全流程
+   * @param img 输入图像
+   * @param target 输出图像
+   * @param scale 返回的缩放比例
+   */
+  bool execute(const cv::Mat & img, cv::Mat & target, double & scale) const;
 
   /**
    * @brief 获取模型配置
