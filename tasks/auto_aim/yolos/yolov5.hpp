@@ -63,8 +63,7 @@ private:
   double min_confidence_;              ///< 最小置信度
   double binary_threshold_;            ///< 二值化阈值
 
-  ov::Core core_;                     ///< OpenVINO核心对象
-  ov::CompiledModel compiled_model_;  ///< 编译后的模型
+  Backend backend_;
 
   cv::Rect roi_;        ///< ROI区域
   cv::Point2f offset_;  ///< ROI偏移量

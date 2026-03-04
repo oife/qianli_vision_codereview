@@ -17,35 +17,18 @@ namespace auto_aim
 {
 BackendBase::BackendBase(const std::string & config_path) : config_path_(config_path) {}
 
-cv::Mat BackendBase::preprocess(
-  const cv::Mat & img, double & scale, int & pad_top, int & pad_left) const
+void BackendBase::preprocess(const cv::Mat & img, double & scale) const
 {
-  if (img.empty()) return cv::Mat();
-  cv::Mat resized;
+  if (img.empty()) return;
+  auto x_scale = static_cast<double>(model_config_.input_size.width) / img.rows;
+  auto y_scale = static_cast<double>(model_config_.input_size.height) / img.cols;
+  scale = std::min(x_scale, y_scale);
+  auto h = static_cast<int>(img.rows * scale);
+  auto w = static_cast<int>(img.cols * scale);
 
-  if (model_config_.keep_aspect_ratio) {
-    double x_scale = static_cast<double>(model_config_.input_size.width) / img.cols;
-    double y_scale = static_cast<double>(model_config_.input_size.height) / img.rows;
-    scale = std::min(x_scale, y_scale);
-
-    int w = static_cast<int>(img.cols * scale);
-    int h = static_cast<int>(img.rows * scale);
-
-    cv::resize(img, resized, cv::Size(w, h));
-
-    pad_top = (model_config_.input_size.height - h) / 2;
-    pad_left = (model_config_.input_size.width - w) / 2;
-
-    cv::Mat padded(model_config_.input_size, img.type(), model_config_.padding_color);
-    resized.copyTo(padded(cv::Rect(pad_left, pad_top, w, h)));
-    resized = padded;
-  } else {
-    cv::resize(img, resized, model_config_.input_size);
-    scale = 1.0;
-    pad_top = pad_left = 0;
-  }
-
-  return resized;
+  auto input = cv::Mat(model_config_.input_size, CV_8UC3, model_config_.padding_color);
+  auto roi = cv::Rect(0, 0, w, h);
+  cv::resize(img, input(roi), {w, h});
 }
 
 Backend::Backend(const std::string config_path)
@@ -60,10 +43,10 @@ Backend::Backend(const std::string config_path)
 #ifdef TENSORRT_AVAILABLE
   if (backend_type == "tensorrt") {
     backend_ = std::make_unique<TensorRTBackend>(config_path);
-#endif
-    tools::logger()->error("未知的后端类型：{}", backend_type);
-    backend_ = nullptr;
   }
+#endif
+  tools::logger()->error("未知的后端类型：{}", backend_type);
+  backend_ = nullptr;
 }
 
 bool Backend::init(const std::string & model_path, const ModelConfig & model_config)
@@ -73,9 +56,9 @@ bool Backend::init(const std::string & model_path, const ModelConfig & model_con
 
 cv::Mat Backend::infer(const cv::Mat & input) { return backend_->infer(input); }
 
-cv::Mat Backend::preprocess(const cv::Mat & img, double & scale, int & pad_top, int & pad_left)
+cv::Mat Backend::preprocess(const cv::Mat & img, double & scale)
 {
-  return backend_->preprocess(img, scale, pad_top, pad_left);
+  backend_->preprocess(img, scale);
 }
 
 const ModelConfig & Backend::get_model_config() const { return backend_->get_model_config(); }

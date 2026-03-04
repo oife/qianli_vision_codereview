@@ -13,9 +13,9 @@ public:
   explicit OpenVINOBackend(const std::string & config_path);
   ~OpenVINOBackend() override = default;
 
-  bool init(const std::string & model_path) override;
+  bool init(const std::string & model_path, const ModelConfig & model_config) override;
   cv::Mat infer(const cv::Mat & input) override;
-  cv::Size get_name() const override;
+  std::string get_name() const override;
 
 private:
   ov::Core core_;

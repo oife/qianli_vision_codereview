@@ -26,10 +26,8 @@ bool OpenVINOBackend::init(const std::string & model_path, const ModelConfig & m
     input.tensor()
       .set_element_type(ov::element::u8)
       .set_shape(
-        {1, 
-        static_cast<size_t>(model_config.input_size.height), 
-        static_cast<size_t>(model_config.input_size.width,
-        3})
+        {1, static_cast<size_t>(model_config.input_size.height),
+         static_cast<size_t>(model_config.input_size.width), 3})
       .set_layout("NHWC")
       .set_color_format(ov::preprocess::ColorFormat::BGR);
 
@@ -79,6 +77,6 @@ cv::Mat OpenVINOBackend::infer(const cv::Mat & input)
   }
 }
 
-cv::Size OpenVINOBackend::get_input_size() const { return input_size_; }
+std::string OpenVINOBackend::get_name() const { return "OpenVINO"; }
 
 }  // namespace auto_aim

@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 
 set(OpenVINO_DIR "/opt/intel/openvino_2024.6.0/runtime/cmake")
 
+find_package(Eigen3 REQUIRED)
 find_package(OpenVINO QUIET COMPONENTS Runtime)
 
 add_subdirectory(planner/tinympc)

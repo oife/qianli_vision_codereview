@@ -6,7 +6,8 @@
 #include <vector>
 
 // TODO: Just for debug, remember to remove it.
-#define TENSORRT_AVAILABLE
+// #define TENSORRT_AVAILABLE
+#define OPENVINO_AVAILABLE
 
 namespace auto_aim
 {
@@ -63,7 +64,7 @@ public:
    * @param pad_left 返回的左方填充
    * @return 预处理后的图像
    */
-  cv::Mat preprocess(const cv::Mat & img, double & scale, int & pad_top, int & pad_left) const;
+  void preprocess(const cv::Mat & img, double & scale) const;
 
   /**
    * @brief 获取模型配置
@@ -118,7 +119,7 @@ public:
    * @param pad_left 返回的左方填充
    * @return 预处理后的图像
    */
-  cv::Mat preprocess(const cv::Mat & img, double & scale, int & pad_top, int & pad_left);
+  cv::Mat preprocess(const cv::Mat & img, double & scale);
 
   /**
    * @brief 获取模型配置
