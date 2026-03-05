@@ -70,11 +70,6 @@ public:
   const ModelConfig & get_model_config() const { return model_config_; }
 
   /**
-   * @brief 获取模型输出尺寸
-   */
-  virtual cv::Size get_output_size() const = 0;
-
-  /**
    * @brief 获取后端名称
    */
   virtual std::string get_name() const = 0;

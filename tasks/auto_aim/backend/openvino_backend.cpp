@@ -67,7 +67,7 @@ bool OpenVINOBackend::infer(const cv::Mat & input, cv::Mat & output) const
     infer_request_.set_input_tensor(input_tensor);
     infer_request_.infer();
 
-    output_tensor_ = infer_request.get_output_tensor();
+    auto output_tensor = infer_request_.get_output_tensor();
     auto output_shape = output_tensor.get_shape();
 
     output = cv::Mat(output_shape[1], output_shape[2], CV_32F, output_tensor.data());

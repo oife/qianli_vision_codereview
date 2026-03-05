@@ -21,7 +21,6 @@ private:
   ov::Core core_;
   ov::CompiledModel compiled_model_;
   ov::InferRequest infer_request_;
-  ov::Tensor output_tensor_;
   std::string device_;
 };
 
