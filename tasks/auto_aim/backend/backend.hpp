@@ -6,17 +6,24 @@
 #include <vector>
 
 // TODO: Just for debug, remember to remove it.
-#define TENSORRT_AVAILABLE
-// #define OPENVINO_AVAILABLE
+// #define TENSORRT_AVAILABLE
+#define OPENVINO_AVAILABLE
 
 namespace auto_aim
 {
-struct ModelConfig
+struct BackendConfig
 {
   cv::Size input_size{640, 640};
   cv::Scalar padding_color{0, 0, 0};
   bool normalize{true};
   bool rgb_input{true};
+};
+
+class BackendCtx
+{
+public:
+  explicit BackendCtx();
+  virtual ~BackendCtx() = default;
 };
 
 /**
@@ -38,14 +45,20 @@ public:
    * @param model_path 模型文件路径
    * @return 是否初始化成功
    */
-  virtual bool init(const std::string & model_path, const ModelConfig & model_config) = 0;
+  virtual bool init(const std::string & model_path, const BackendConfig & model_config) = 0;
+
+  /**
+   * @brief 创建推理上下文
+   * @return 后端推理上下文
+   */
+  virtual std::unique_ptr<BackendCtx> create_ctx() = 0;
 
   /**
    * @brief 模型推理
    * @param input 输入图像（已完成预处理）
    * @param output 推理输出特征图
    */
-  virtual bool infer(const cv::Mat & input, cv::Mat & output) const = 0;
+  virtual bool infer(const cv::Mat & input, cv::Mat & output, BackendCtx * ctx) = 0;
 
   /**
    * @brief 预处理图像
@@ -54,7 +67,7 @@ public:
    * @param scale 返回的缩放比例
    * @return 预处理后的图像
    */
-  bool preprocess(const cv::Mat & img, cv::Mat & target, double & scale) const;
+  bool preprocess(const cv::Mat & img, cv::Mat & target, double & scale);
 
   /**
    * @brief 完整执行预处理到推理的全流程
@@ -62,12 +75,12 @@ public:
    * @param target 输出图像
    * @param scale 返回的缩放比例
    */
-  bool execute(const cv::Mat & img, cv::Mat & target, double & scale) const;
+  bool execute(const cv::Mat & img, cv::Mat & target, double & scale, BackendCtx * ctx);
 
   /**
    * @brief 获取模型配置
    */
-  const ModelConfig & get_model_config() const { return model_config_; }
+  const BackendConfig & get_model_config() const { return model_config_; }
 
   /**
    * @brief 获取后端名称
@@ -75,7 +88,7 @@ public:
   virtual std::string get_name() const = 0;
 
 protected:
-  ModelConfig model_config_;
+  BackendConfig model_config_;
   std::string config_path_;
 };
 
@@ -99,14 +112,20 @@ public:
    * @param model_path 模型文件路径
    * @return 是否初始化成功
    */
-  bool init(const std::string & model_path, const ModelConfig & model_config);
+  bool init(const std::string & model_path, const BackendConfig & model_config);
+
+  /**
+   * @brief 创建推理上下文
+   * @return 后端推理上下文
+   */
+  virtual std::unique_ptr<BackendCtx> create_ctx();
 
   /**
    * @brief 模型推理
    * @param input 输入图像（已完成预处理）
    * @return 推理输出特征图
    */
-  bool infer(const cv::Mat & input, cv::Mat & output) const;
+  bool infer(const cv::Mat & input, cv::Mat & output, BackendCtx * ctx);
 
   /**
    * @brief 预处理图像
@@ -116,7 +135,7 @@ public:
    * @param pad_left 返回的左方填充
    * @return 预处理后的图像
    */
-  bool preprocess(const cv::Mat & img, cv::Mat target, double & scale) const;
+  bool preprocess(const cv::Mat & img, cv::Mat target, double & scale);
 
   /**
    * @brief 完整执行预处理到推理的全流程
@@ -124,18 +143,18 @@ public:
    * @param target 输出图像
    * @param scale 返回的缩放比例
    */
-  bool execute(const cv::Mat & img, cv::Mat & target, double & scale) const;
+  bool execute(const cv::Mat & img, cv::Mat & target, double & scale, BackendCtx * ctx);
 
   /**
    * @brief 获取模型配置
    * @return 模型配置
    */
-  const ModelConfig & get_model_config() const;
+  const BackendConfig & get_model_config() const;
 
   /**
    * @brief 获取后端名称
    */
-  std::string get_name();
+  std::string get_name() const;
 
 private:
   std::unique_ptr<BackendBase> backend_;

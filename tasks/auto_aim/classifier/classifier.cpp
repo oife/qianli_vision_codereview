@@ -10,7 +10,7 @@ Classifier::Classifier(const std::string & config_path) : backend_(config_path)
   auto model = yaml["classify_model"].as<std::string>();
   net_ = cv::dnn::readNetFromONNX(model);
 
-  ModelConfig config;
+  BackendConfig config;
   config.input_size = cv::Size(32, 32);
   config.normalize = false;
   config.rgb_input = false;

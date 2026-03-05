@@ -40,7 +40,7 @@ YOLOV8::YOLOV8(const std::string & config_path, bool debug)
   save_path_ = "imgs";
   std::filesystem::create_directory(save_path_);
 
-  ModelConfig config;
+  BackendConfig config;
   config.input_size = cv::Size(416, 416);
   config.padding_color = cv::Scalar(0, 0, 0);
   config.normalize = true;

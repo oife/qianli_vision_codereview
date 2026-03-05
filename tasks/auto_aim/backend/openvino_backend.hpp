@@ -11,17 +11,24 @@ class OpenVINOBackend : public BackendBase
 {
 public:
   explicit OpenVINOBackend(const std::string & config_path);
-  ~OpenVINOBackend() override = default;
+  ~OpenVINOBackend() override;
 
-  bool init(const std::string & model_path, const ModelConfig & model_config) override;
-  cv::Mat infer(const cv::Mat & input) override;
+  bool init(const std::string & model_path, const BackendConfig & model_config) override;
+  bool infer(const cv::Mat & input, cv::Mat & output, BackendCtx * ctx) override;
+  std::unique_ptr<BackendCtx> create_ctx() override;
   std::string get_name() const override;
 
 private:
   ov::Core core_;
   ov::CompiledModel compiled_model_;
-  ov::InferRequest infer_request_;
   std::string device_;
+};
+
+class OpenVINOCtx : public BackendCtx
+{
+private:
+  ov::InferRequest infer_request_;
+  friend class OpenVINOBackend;
 };
 
 }  // namespace auto_aim

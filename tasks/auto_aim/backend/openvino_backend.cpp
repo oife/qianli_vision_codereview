@@ -14,7 +14,7 @@ OpenVINOBackend::OpenVINOBackend(const std::string & config_path) : BackendBase(
   device_ = yaml["device"].as<std::string>("CPU");
 }
 
-bool OpenVINOBackend::init(const std::string & model_path, const ModelConfig & model_config)
+bool OpenVINOBackend::init(const std::string & model_path, const BackendConfig & model_config)
 {
   try {
     model_config_ = model_config;
@@ -53,21 +53,23 @@ bool OpenVINOBackend::init(const std::string & model_path, const ModelConfig & m
   }
 }
 
-bool OpenVINOBackend::infer(const cv::Mat & input, cv::Mat & output) const
+bool OpenVINOBackend::infer(const cv::Mat & input, cv::Mat & output, BackendCtx * ctx)
 {
   if (input.empty()) return false;
   try {
+    auto ov_ctx = static_cast<OpenVINOCtx *>(ctx);
+
     ov::Tensor input_tensor(
       ov::element::u8,
       {1, static_cast<size_t>(model_config_.input_size.height),
        static_cast<size_t>(model_config_.input_size.width), 3},
       const_cast<uchar *>(input.data));
 
-    infer_request_ = compiled_model_.create_infer_request();
-    infer_request_.set_input_tensor(input_tensor);
-    infer_request_.infer();
+    ov_ctx->infer_request_ = compiled_model_.create_infer_request();
+    ov_ctx->infer_request_.set_input_tensor(input_tensor);
+    ov_ctx->infer_request_.infer();
 
-    auto output_tensor = infer_request_.get_output_tensor();
+    auto output_tensor = ov_ctx->infer_request_.get_output_tensor();
     auto output_shape = output_tensor.get_shape();
 
     output = cv::Mat(output_shape[1], output_shape[2], CV_32F, output_tensor.data());
@@ -77,6 +79,12 @@ bool OpenVINOBackend::infer(const cv::Mat & input, cv::Mat & output) const
   }
 }
 
-std::string OpenVINOBackend::get_name() const { return "OpenVINO"; }
+std::unique_ptr<BackendCtx> OpenVINOBackend::create_ctx()
+{
+  auto ctx = std::make_unique<OpenVINOCtx>();
+  ctx->infer_request_ = compiled_model_.create_infer_request();
+  return ctx;
+}
 
+std::string OpenVINOBackend::get_name() const { return "OpenVINO"; }
 }  // namespace auto_aim

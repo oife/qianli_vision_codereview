@@ -14,7 +14,7 @@ public:
   explicit TensorRTBackend(const std::string & config_path);
   ~TensorRTBackend() override;
 
-  bool init(const std::string & model_path, const ModelConfig & model_config) override;
+  bool init(const std::string & model_path, const BackendConfig & model_config) override;
   cv::Mat infer(const cv::Mat & input) override;
   // cv::Size get_input_size() const override;
 

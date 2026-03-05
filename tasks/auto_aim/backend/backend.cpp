@@ -17,7 +17,7 @@ namespace auto_aim
 {
 BackendBase::BackendBase(const std::string & config_path) : config_path_(config_path) {}
 
-bool BackendBase::preprocess(const cv::Mat & img, cv::Mat & target, double & scale) const
+bool BackendBase::preprocess(const cv::Mat & img, cv::Mat & target, double & scale)
 {
   if (img.empty()) return false;
   auto x_scale = static_cast<double>(model_config_.input_size.width) / img.rows;
@@ -32,11 +32,11 @@ bool BackendBase::preprocess(const cv::Mat & img, cv::Mat & target, double & sca
   return (h != 0 && w != 0);
 }
 
-bool BackendBase::execute(const cv::Mat & img, cv::Mat & target, double & scale) const
+bool BackendBase::execute(const cv::Mat & img, cv::Mat & target, double & scale, BackendCtx * ctx)
 {
   auto input = cv::Mat(model_config_.input_size, CV_8UC3, model_config_.padding_color);
   if (!preprocess(img, input, scale)) return false;
-  if (!infer(input, target)) return false;
+  if (!infer(input, target, ctx)) return false;
   return true;
 }
 
@@ -58,27 +58,29 @@ Backend::Backend(const std::string config_path)
   backend_ = nullptr;
 }
 
-bool Backend::init(const std::string & model_path, const ModelConfig & model_config)
+bool Backend::init(const std::string & model_path, const BackendConfig & model_config)
 {
   return backend_->init(model_path, model_config);
 }
 
-bool Backend::infer(const cv::Mat & input, cv::Mat & output) const
+std::unique_ptr<BackendCtx> Backend::create_ctx() { return backend_->create_ctx(); }
+
+bool Backend::infer(const cv::Mat & input, cv::Mat & output, BackendCtx * ctx)
 {
-  return backend_->infer(input, output);
+  return backend_->infer(input, output, ctx);
 }
 
-bool Backend::preprocess(const cv::Mat & img, cv::Mat target, double & scale) const
+bool Backend::preprocess(const cv::Mat & img, cv::Mat target, double & scale)
 {
   return backend_->preprocess(img, target, scale);
 }
 
-bool Backend::execute(const cv::Mat & img, cv::Mat & target, double & scale) const
+bool Backend::execute(const cv::Mat & img, cv::Mat & target, double & scale, BackendCtx * ctx)
 {
-  return backend_->execute(img, target, scale);
+  return backend_->execute(img, target, scale, ctx);
 }
 
-const ModelConfig & Backend::get_model_config() const { return backend_->get_model_config(); }
+const BackendConfig & Backend::get_model_config() const { return backend_->get_model_config(); }
 
-std::string Backend::get_name() { return backend_->get_name(); }
+std::string Backend::get_name() const { return backend_->get_name(); }
 }  // namespace auto_aim

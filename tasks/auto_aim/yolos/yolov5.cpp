@@ -32,7 +32,7 @@ YOLOV5::YOLOV5(const std::string & config_path, bool debug)
   save_path_ = "imgs";
   std::filesystem::create_directory(save_path_);
 
-  ModelConfig config;
+  BackendConfig config;
   config.input_size = cv::Size(640, 640);
 
   if (!backend_.init(model_path_, config)) {
@@ -63,8 +63,9 @@ std::list<Armor> YOLOV5::detect(const cv::Mat & raw_img, int frame_count)
   }
 
   double scale;
-  backend_.preprocess(bgr_img, scale);
-  cv::Mat output = backend_.infer(bgr_img);
+  auto ctx = backend_.c cv::Mat mid, output;
+  backend_.preprocess(bgr_img, mid, scale);
+  backend_.infer(mid, output, ctx);
 
   return parse(scale, output, raw_img, frame_count);
 }
