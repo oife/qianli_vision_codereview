@@ -49,27 +49,26 @@ public:
     double scale, cv::Mat & output, const cv::Mat & bgr_img, int frame_count) override;
 
 private:
-  std::string device_;        ///< 推理设备（CPU/GPU等）
-  std::string model_path_;    ///< 模型文件路径
-  std::string save_path_;     ///< 保存路径
-  std::string debug_path_;   ///< 调试路径
-  bool debug_;                ///< 是否开启调试模式
-  bool use_roi_;              ///< 是否使用ROI区域裁剪
+  std::string device_;      ///< 推理设备（CPU/GPU等）
+  std::string model_path_;  ///< 模型文件路径
+  std::string save_path_;   ///< 保存路径
+  std::string debug_path_;  ///< 调试路径
+  bool debug_;              ///< 是否开启调试模式
+  bool use_roi_;            ///< 是否使用ROI区域裁剪
 
-  const int class_num_ = 38;              ///< 类别数量
-  const float nms_threshold_ = 0.3;       ///< NMS阈值
-  const float score_threshold_ = 0.7;     ///< 置信度阈值
-  double min_confidence_;                 ///< 最小置信度
-  double binary_threshold_;               ///< 二值化阈值
+  const int class_num_ = 38;           ///< 类别数量
+  const float nms_threshold_ = 0.3;    ///< NMS阈值
+  const float score_threshold_ = 0.7;  ///< 置信度阈值
+  double min_confidence_;              ///< 最小置信度
+  double binary_threshold_;            ///< 二值化阈值
 
-  ov::Core core_;                         ///< OpenVINO核心对象
-  ov::CompiledModel compiled_model_;      ///< 编译后的模型
+  Backend backend_;
 
-  cv::Rect roi_;                          ///< ROI区域
-  cv::Point2f offset_;                    ///< ROI偏移量
-  cv::Mat tmp_img_;                       ///< 临时图像存储
+  cv::Rect roi_;        ///< ROI区域
+  cv::Point2f offset_;  ///< ROI偏移量
+  cv::Mat tmp_img_;     ///< 临时图像存储
 
-  Detector detector_;                     ///< 传统检测器
+  Detector detector_;  ///< 传统检测器
 
   /**
    * @brief 检查装甲板的名称识别结果和置信度

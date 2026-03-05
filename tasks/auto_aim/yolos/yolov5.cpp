@@ -63,9 +63,9 @@ std::list<Armor> YOLOV5::detect(const cv::Mat & raw_img, int frame_count)
   }
 
   double scale;
-  auto ctx = backend_.c cv::Mat mid, output;
-  backend_.preprocess(bgr_img, mid, scale);
-  backend_.infer(mid, output, ctx);
+  cv::Mat output;
+  auto ctx = backend_.create_ctx();
+  backend_.execute(bgr_img, output, scale, ctx.get());
 
   return parse(scale, output, raw_img, frame_count);
 }

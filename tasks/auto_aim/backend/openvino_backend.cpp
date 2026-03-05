@@ -20,30 +20,29 @@ bool OpenVINOBackend::init(const std::string & model_path, const BackendConfig &
     model_config_ = model_config;
 
     auto model = core_.read_model(model_path);
-    ov::preprocess::PrePostProcessor ppp(model);
-    auto & input = ppp.input();
 
-    input.tensor()
-      .set_element_type(ov::element::u8)
-      .set_shape(
-        {1, static_cast<size_t>(model_config.input_size.height),
-         static_cast<size_t>(model_config.input_size.width), 3})
-      .set_layout("NHWC")
-      .set_color_format(ov::preprocess::ColorFormat::BGR);
+    if (model_config_.preprocess) {
+      ov::preprocess::PrePostProcessor ppp(model);
+      auto & input = ppp.input();
 
-    input.model().set_layout("NCHW");
+      input.tensor()
+        .set_element_type(ov::element::u8)
+        .set_shape(
+          {1, static_cast<size_t>(model_config.input_size.height),
+           static_cast<size_t>(model_config.input_size.width), 3})
+        .set_layout("NHWC")
+        .set_color_format(ov::preprocess::ColorFormat::BGR);
 
-    input.preprocess().convert_element_type(ov::element::f32);
+      input.model().set_layout("NCHW");
 
-    if (model_config.rgb_input) {
-      input.preprocess().convert_color(ov::preprocess::ColorFormat::RGB);
+      input.preprocess()
+        .convert_element_type(ov::element::f32)
+        .convert_color(ov::preprocess::ColorFormat::RGB)
+        .scale(255.0);
+
+      model = ppp.build();
     }
 
-    if (model_config.normalize) {
-      input.preprocess().scale(255.0f);
-    }
-
-    model = ppp.build();
     compiled_model_ = core_.compile_model(
       model, device_, ov::hint::performance_mode(ov::hint::PerformanceMode::LATENCY));
     return true;

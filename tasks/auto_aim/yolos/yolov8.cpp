@@ -42,14 +42,6 @@ YOLOV8::YOLOV8(const std::string & config_path, bool debug)
 
   BackendConfig config;
   config.input_size = cv::Size(416, 416);
-  config.padding_color = cv::Scalar(0, 0, 0);
-  config.normalize = true;
-  config.normalize_mean[0] = 0.0f;
-  config.normalize_mean[1] = 0.0f;
-  config.normalize_mean[2] = 0.0f;
-  config.normalize_std[0] = 1.0f / 255.0f;
-  config.normalize_std[1] = 1.0f / 255.0f;
-  config.normalize_std[2] = 1.0f / 255.0f;
 
   if (!backend_.init(model_path_, config)) {
     throw std::runtime_error("Backend initializing failed");
@@ -83,8 +75,9 @@ std::list<Armor> YOLOV8::detect(const cv::Mat & raw_img, int frame_count)
   }
 
   double scale;
-  backend_.preprocess(bgr_img, scale);
-  cv::Mat output = backend_.infer(bgr_img);
+  cv::Mat output;
+  auto ctx = backend_.create_ctx();
+  backend_.execute(bgr_img, output, scale, ctx.get());
 
   return parse(scale, output, raw_img, frame_count);
 }

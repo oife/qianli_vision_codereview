@@ -15,8 +15,7 @@ struct BackendConfig
 {
   cv::Size input_size{640, 640};
   cv::Scalar padding_color{0, 0, 0};
-  bool normalize{true};
-  bool rgb_input{true};
+  bool preprocess{true};
 };
 
 class BackendCtx
@@ -61,13 +60,13 @@ public:
   virtual bool infer(const cv::Mat & input, cv::Mat & output, BackendCtx * ctx) = 0;
 
   /**
-   * @brief 预处理图像
+   * @brief 标准化图像
    * @param img 输入图像
    * @param target 输出图像
    * @param scale 返回的缩放比例
-   * @return 预处理后的图像
+   * @return 标准化后的图像
    */
-  bool preprocess(const cv::Mat & img, cv::Mat & target, double & scale);
+  bool standarlize(const cv::Mat & img, cv::Mat & target, double & scale);
 
   /**
    * @brief 完整执行预处理到推理的全流程
@@ -135,7 +134,7 @@ public:
    * @param pad_left 返回的左方填充
    * @return 预处理后的图像
    */
-  bool preprocess(const cv::Mat & img, cv::Mat target, double & scale);
+  bool standarlize(const cv::Mat & img, cv::Mat target, double & scale);
 
   /**
    * @brief 完整执行预处理到推理的全流程

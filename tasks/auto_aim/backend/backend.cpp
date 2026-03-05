@@ -17,7 +17,7 @@ namespace auto_aim
 {
 BackendBase::BackendBase(const std::string & config_path) : config_path_(config_path) {}
 
-bool BackendBase::preprocess(const cv::Mat & img, cv::Mat & target, double & scale)
+bool BackendBase::standarlize(const cv::Mat & img, cv::Mat & target, double & scale)
 {
   if (img.empty()) return false;
   auto x_scale = static_cast<double>(model_config_.input_size.width) / img.rows;
@@ -35,7 +35,7 @@ bool BackendBase::preprocess(const cv::Mat & img, cv::Mat & target, double & sca
 bool BackendBase::execute(const cv::Mat & img, cv::Mat & target, double & scale, BackendCtx * ctx)
 {
   auto input = cv::Mat(model_config_.input_size, CV_8UC3, model_config_.padding_color);
-  if (!preprocess(img, input, scale)) return false;
+  if (!standarlize(img, input, scale)) return false;
   if (!infer(input, target, ctx)) return false;
   return true;
 }
@@ -70,9 +70,9 @@ bool Backend::infer(const cv::Mat & input, cv::Mat & output, BackendCtx * ctx)
   return backend_->infer(input, output, ctx);
 }
 
-bool Backend::preprocess(const cv::Mat & img, cv::Mat target, double & scale)
+bool Backend::standarlize(const cv::Mat & img, cv::Mat target, double & scale)
 {
-  return backend_->preprocess(img, target, scale);
+  return backend_->standarlize(img, target, scale);
 }
 
 bool Backend::execute(const cv::Mat & img, cv::Mat & target, double & scale, BackendCtx * ctx)
