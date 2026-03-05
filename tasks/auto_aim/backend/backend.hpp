@@ -21,7 +21,7 @@ struct BackendConfig
 class BackendCtx
 {
 public:
-  explicit BackendCtx();
+  BackendCtx() = default;
   virtual ~BackendCtx() = default;
 };
 

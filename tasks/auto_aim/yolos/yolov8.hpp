@@ -8,8 +8,8 @@
 
 #include "tasks/auto_aim/armor/armor.hpp"
 #include "tasks/auto_aim/backend/backend.hpp"
-// #include "tasks/auto_aim/classifier/classifier.hpp"
-// #include "tasks/auto_aim/detector/detector.hpp"
+#include "tasks/auto_aim/classifier/classifier.hpp"
+#include "tasks/auto_aim/detector/detector.hpp"
 #include "tasks/auto_aim/yolos/yolo.hpp"
 
 namespace auto_aim
