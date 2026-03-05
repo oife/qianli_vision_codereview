@@ -17,7 +17,18 @@ Gimbal::Gimbal(const std::string & config_path)
 
   try {
     serial_.setPort(com_port);
+    // NOTE: serial::Serial::read() may return fewer bytes than requested.
+    // Configure a sane timeout to avoid busy-looping on partial/empty reads.
+    serial_.setBaudrate(921600);
+    serial_.setFlowcontrol(serial::flowcontrol_none);
+    serial_.setParity(serial::parity_none);
+    serial_.setStopbits(serial::stopbits_one);
+    serial_.setBytesize(serial::eightbits);
+    serial::Timeout time_out = serial::Timeout::simpleTimeout(20);
+    serial_.setTimeout(time_out);
     serial_.open();
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    serial_.flushInput();
   } catch (const std::exception & e) {
     tools::logger()->error("[Gimbal] Failed to open serial: {}", e.what());
     exit(1);
@@ -133,9 +144,15 @@ void Gimbal::send(
 bool Gimbal::read(uint8_t * buffer, size_t size)
 {
   try {
-    return serial_.read(buffer, size) == size;
+    size_t got = 0;
+    while (got < size && !quit_) {
+      auto n = serial_.read(buffer + got, size - got);
+      if (n == 0) return false;  // timeout
+      got += n;
+    }
+    return got == size;
   } catch (const std::exception & e) {
-    // tools::logger()->warn("[Gimbal] Failed to read serial: {}", e.what());
+    tools::logger()->debug("[Gimbal] Failed to read serial: {}", e.what());
     return false;
   }
 }
@@ -144,21 +161,39 @@ void Gimbal::read_thread()
 {
   tools::logger()->info("[Gimbal] read_thread started.");
   int error_count = 0;
+  int header_read_fail = 0;
+  int body_read_fail = 0;
+  int bad_header = 0;
+  int crc_fail = 0;
 
   while (!quit_) {
     if (error_count > 5000) {
       error_count = 0;
-      tools::logger()->warn("[Gimbal] Too many errors, attempting to reconnect...");
+      tools::logger()->warn(
+        "[Gimbal] Too many errors, attempting to reconnect... "
+        "(header_read_fail={}, body_read_fail={}, bad_header={}, crc_fail={})",
+        header_read_fail, body_read_fail, bad_header, crc_fail);
+      header_read_fail = 0;
+      body_read_fail = 0;
+      bad_header = 0;
+      crc_fail = 0;
       reconnect();
       continue;
     }
 
     if (!read(reinterpret_cast<uint8_t *>(&rx_data_), sizeof(rx_data_.head))) {
       error_count++;
+      header_read_fail++;
       continue;
     }
 
-    if (rx_data_.head[0] != 'S' || rx_data_.head[1] != 'P') continue;
+    if (rx_data_.head[0] != 'S' || rx_data_.head[1] != 'P') {
+      error_count++;
+      bad_header++;
+      tools::logger()->debug(
+        "[Gimbal] Invalid frame header: 0x{:02X} 0x{:02X}", rx_data_.head[0], rx_data_.head[1]);
+      continue;
+    }
 
     auto t = std::chrono::steady_clock::now();
 
@@ -166,10 +201,13 @@ void Gimbal::read_thread()
           reinterpret_cast<uint8_t *>(&rx_data_) + sizeof(rx_data_.head),
           sizeof(rx_data_) - sizeof(rx_data_.head))) {
       error_count++;
+      body_read_fail++;
       continue;
     }
 
     if (!tools::check_crc16(reinterpret_cast<uint8_t *>(&rx_data_), sizeof(rx_data_))) {
+      error_count++;
+      crc_fail++;
       tools::logger()->debug("[Gimbal] CRC16 check failed.");
       continue;
     }
@@ -223,6 +261,8 @@ void Gimbal::reconnect()
 
     try {
       serial_.open();  // 尝试重新打开
+      std::this_thread::sleep_for(std::chrono::seconds(1));
+      serial_.flushInput();
       queue_.clear();
       tools::logger()->info("[Gimbal] Reconnected serial successfully.");
       break;
