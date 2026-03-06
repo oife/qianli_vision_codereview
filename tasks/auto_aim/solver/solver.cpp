@@ -82,13 +82,28 @@ void Solver::set_R_gimbal2world(const Eigen::Quaterniond & q)
  */
 void Solver::solve(Armor & armor) const
 {
-  const auto & object_points =
+  const auto & full_object_points =
     (armor.type == ArmorType::big) ? BIG_ARMOR_POINTS : SMALL_ARMOR_POINTS;
 
+  // 根据关键点可见性选择参与 PnP 的点子集
+  std::vector<cv::Point3f> object_points;
+  std::vector<cv::Point2f> image_points;
+  int visible_count = 0;
+
+  for (int i = 0; i < 4; i++) {
+    if (i < (int)armor.kpt_visibility.size() && armor.kpt_visibility[i] <= 0.5f) continue;
+    object_points.push_back(full_object_points[i]);
+    image_points.push_back(armor.points[i]);
+    visible_count++;
+  }
+
+  if (visible_count < 3) return;  // 不足 3 点无法解算
+
   cv::Vec3d rvec, tvec;
-  cv::solvePnP(
-    object_points, armor.points, camera_matrix_, distort_coeffs_, rvec, tvec, false,
-    cv::SOLVEPNP_IPPE);
+  // 4 点用 IPPE（共面专用），3 点用 SQPNP
+  int method = (visible_count == 4) ? cv::SOLVEPNP_IPPE : cv::SOLVEPNP_SQPNP;
+  cv::solvePnP(object_points, image_points, camera_matrix_, distort_coeffs_, rvec, tvec, false,
+    method);
 
   Eigen::Vector3d xyz_in_camera;
   cv::cv2eigen(tvec, xyz_in_camera);
@@ -177,13 +192,25 @@ std::vector<cv::Point2f> Solver::reproject_armor(
 double Solver::oupost_reprojection_error(Armor armor, const double & pitch)
 {
   // 先用 PnP 解算 yaw、平移，再替换 pitch 计算重投影误差
-  const auto & object_points =
+  const auto & full_object_points =
     (armor.type == ArmorType::big) ? BIG_ARMOR_POINTS : SMALL_ARMOR_POINTS;
 
+  // 根据可见性选择点子集
+  std::vector<cv::Point3f> object_points;
+  std::vector<cv::Point2f> image_points;
+  int visible_count = 0;
+  for (int i = 0; i < 4; i++) {
+    if (i < (int)armor.kpt_visibility.size() && armor.kpt_visibility[i] <= 0.5f) continue;
+    object_points.push_back(full_object_points[i]);
+    image_points.push_back(armor.points[i]);
+    visible_count++;
+  }
+  if (visible_count < 3) return 1e10;
+
   cv::Vec3d rvec, tvec;
+  int method = (visible_count == 4) ? cv::SOLVEPNP_IPPE : cv::SOLVEPNP_SQPNP;
   cv::solvePnP(
-    object_points, armor.points, camera_matrix_, distort_coeffs_, rvec, tvec, false,
-    cv::SOLVEPNP_IPPE);
+    object_points, image_points, camera_matrix_, distort_coeffs_, rvec, tvec, false, method);
 
   Eigen::Vector3d xyz_in_camera;
   cv::cv2eigen(tvec, xyz_in_camera);
@@ -232,12 +259,18 @@ double Solver::oupost_reprojection_error(Armor armor, const double & pitch)
   cv::Rodrigues(R_armor2camera_cv, _rvec);
   cv::Vec3d _tvec(t_armor2camera[0], t_armor2camera[1], t_armor2camera[2]);
 
-  // reproject
-  std::vector<cv::Point2f> image_points;
-  cv::projectPoints(object_points, _rvec, _tvec, camera_matrix_, distort_coeffs_, image_points);
+  // reproject（用全部 4 个 3D 点投影，再按可见性比较）
+  const auto & all_object_points =
+    (armor.type == ArmorType::big) ? BIG_ARMOR_POINTS : SMALL_ARMOR_POINTS;
+  std::vector<cv::Point2f> reproj_points;
+  cv::projectPoints(
+    all_object_points, _rvec, _tvec, camera_matrix_, distort_coeffs_, reproj_points);
 
   auto error = 0.0;
-  for (int i = 0; i < 4; i++) error += cv::norm(armor.points[i] - image_points[i]);
+  for (int i = 0; i < 4; i++) {
+    if (i < (int)armor.kpt_visibility.size() && armor.kpt_visibility[i] <= 0.5f) continue;
+    error += cv::norm(armor.points[i] - reproj_points[i]);
+  }
   return error;
 }
 
@@ -331,9 +364,11 @@ double Solver::armor_reprojection_error(
   // 根据假设的 yaw 重投影装甲板并计算像素误差
   auto image_points = reproject_armor(armor.xyz_in_world, yaw, armor.type, armor.name);
   auto error = 0.0;
-  for (int i = 0; i < 4; i++) error += cv::norm(armor.points[i] - image_points[i]);
-  // auto error = SJTU_cost(image_points, armor.points, inclined);
-
+  for (int i = 0; i < 4; i++) {
+    // 跳过不可见的关键点
+    if (i < (int)armor.kpt_visibility.size() && armor.kpt_visibility[i] <= 0.5f) continue;
+    error += cv::norm(armor.points[i] - image_points[i]);
+  }
   return error;
 }
 

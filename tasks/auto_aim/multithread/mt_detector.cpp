@@ -24,8 +24,8 @@ MultiThreadDetector::MultiThreadDetector(const std::string & config_path, bool d
 {
   // 加载YAML配置文件
   auto yaml = YAML::LoadFile(config_path);
-  auto yolo_name = yaml["yolo_name"].as<std::string>();
-  auto model_path = yaml[yolo_name + "_model_path"].as<std::string>();
+  yolo_name_ = yaml["yolo_name"].as<std::string>();
+  auto model_path = yaml[yolo_name_ + "_model_path"].as<std::string>();
   device_ = yaml["device"].as<std::string>();
 
   // 读取OpenVINO模型
@@ -36,20 +36,27 @@ MultiThreadDetector::MultiThreadDetector(const std::string & config_path, bool d
 
   // 配置输入张量的属性
   input.tensor()
-    .set_element_type(ov::element::u8)  // 输入数据类型为uint8
-    .set_shape({1, 640, 640, 3})  // 输入形状：批次大小1，高度640，宽度640，通道数3
-    .set_layout("NHWC")  // 张量布局：N(批次) H(高度) W(宽度) C(通道)
-    .set_color_format(ov::preprocess::ColorFormat::BGR);  // 输入颜色格式为BGR
+    .set_element_type(ov::element::u8)
+    .set_shape({1, 640, 640, 3})
+    .set_layout("NHWC")
+    .set_color_format(ov::preprocess::ColorFormat::BGR);
 
   // 配置模型输入布局
-  input.model().set_layout("NCHW");  // 模型期望的布局：N(批次) C(通道) H(高度) W(宽度)
+  input.model().set_layout("NCHW");
 
   // 配置预处理步骤
   input.preprocess()
-    .convert_element_type(ov::element::f32)  // 转换为float32类型
-    .convert_color(ov::preprocess::ColorFormat::RGB)  // BGR转RGB
-    // .resize(ov::preprocess::ResizeAlgorithm::RESIZE_LINEAR)  // 可选的线性缩放
-    .scale(255.0);  // 归一化：除以255.0
+    .convert_element_type(ov::element::f32)
+    .convert_color(ov::preprocess::ColorFormat::RGB)
+    .scale(255.0);
+
+  // YOLO26n FP16 模型需要额外的类型转换
+  if (yolo_name_ == "yolo26n" &&
+      model->input(0).get_element_type() == ov::element::f16) {
+    input.preprocess().convert_element_type(ov::element::f16);
+    for (size_t i = 0; i < model->outputs().size(); i++)
+      ppp.output(i).postprocess().convert_element_type(ov::element::f32);
+  }
 
   // 构建预处理管道
   model = ppp.build();
@@ -71,25 +78,29 @@ void MultiThreadDetector::push(cv::Mat img, std::chrono::steady_clock::time_poin
   // 计算缩放比例，保持宽高比
   auto x_scale = static_cast<double>(640) / img.rows;
   auto y_scale = static_cast<double>(640) / img.cols;
-  auto scale = std::min(x_scale, y_scale);  // 选择较小的缩放比例以保持宽高比
+  auto scale = std::min(x_scale, y_scale);
   auto h = static_cast<int>(img.rows * scale);
   auto w = static_cast<int>(img.cols * scale);
 
-  // 图像预处理：创建640x640的黑色背景，将缩放后的图像放置在其中
-  auto input = cv::Mat(640, 640, CV_8UC3, cv::Scalar(0, 0, 0));  // 创建黑色背景
-  auto roi = cv::Rect(0, 0, w, h);  // 定义感兴趣区域
-  cv::resize(img, input(roi), {w, h});  // 将图像缩放到ROI大小
+  cv::Mat input;
+  if (yolo_name_ == "yolo26n") {
+    // YOLO26n: 居中 letterbox + 灰色 114 填充
+    input = cv::Mat(640, 640, CV_8UC3, cv::Scalar(114, 114, 114));
+    int pad_x = (640 - w) / 2;
+    int pad_y = (640 - h) / 2;
+    cv::resize(img, input(cv::Rect(pad_x, pad_y, w, h)), {w, h});
+  } else {
+    // 其他模型: 左上角对齐 + 黑色填充
+    input = cv::Mat(640, 640, CV_8UC3, cv::Scalar(0, 0, 0));
+    cv::resize(img, input(cv::Rect(0, 0, w, h)), {w, h});
+  }
 
   // 创建推理请求
-  auto input_port = compiled_model_.input();
   auto infer_request = compiled_model_.create_infer_request();
-  // 创建输入张量，使用预处理后的图像数据
   ov::Tensor input_tensor(ov::element::u8, {1, 640, 640, 3}, input.data);
 
-  // 设置输入张量并启动异步推理
   infer_request.set_input_tensor(input_tensor);
   infer_request.start_async();
-  // 将原始图像、时间戳和推理请求推入队列（克隆图像以避免数据被覆盖）
   queue_.push({img.clone(), t, std::move(infer_request)});
 }
 

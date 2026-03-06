@@ -35,3 +35,10 @@ install/setup.bash
 install/setup.ps1
 install/setup.sh
 install/setup.zsh
+CLAUDE.md
+docs/
+
+# 视频文件
+*.mp4
+*.avi
+*.mkv

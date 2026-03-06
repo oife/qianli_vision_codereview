@@ -8,8 +8,10 @@ using namespace std::chrono_literals;
 
 namespace io
 {
-HikRobot::HikRobot(double exposure_ms, double gain, const std::string & vid_pid)
-: exposure_us_(exposure_ms * 1e3), gain_(gain), queue_(1), daemon_quit_(false), vid_(-1), pid_(-1)
+HikRobot::HikRobot(double exposure_ms, double gain, const std::string & vid_pid,
+                   int width, int height)
+: exposure_us_(exposure_ms * 1e3), gain_(gain), width_(width), height_(height),
+  queue_(1), daemon_quit_(false), vid_(-1), pid_(-1)
 {
   set_vid_pid(vid_pid);
   if (libusb_init(NULL)) tools::logger()->warn("Unable to init libusb!");
@@ -89,6 +91,23 @@ void HikRobot::capture_start()
   set_float_value("Gain", gain_);
   MV_CC_SetFrameRate(handle_, 150);
 
+  // 设置分辨率（ROI）
+  if (width_ > 0 && height_ > 0) {
+    MVCC_INTVALUE max_w, max_h;
+    MV_CC_GetIntValue(handle_, "WidthMax", &max_w);
+    MV_CC_GetIntValue(handle_, "HeightMax", &max_h);
+    int offset_x = ((int)max_w.nCurValue - width_) / 2;
+    int offset_y = ((int)max_h.nCurValue - height_) / 2;
+    // offset 需要对齐（通常2像素对齐）
+    offset_x = offset_x / 2 * 2;
+    offset_y = offset_y / 2 * 2;
+    MV_CC_SetIntValue(handle_, "Width", width_);
+    MV_CC_SetIntValue(handle_, "Height", height_);
+    MV_CC_SetIntValue(handle_, "OffsetX", offset_x);
+    MV_CC_SetIntValue(handle_, "OffsetY", offset_y);
+    tools::logger()->info("Camera ROI: {}x{} offset({}, {})", width_, height_, offset_x, offset_y);
+  }
+
   ret = MV_CC_StartGrabbing(handle_);
   if (ret != MV_OK) {
     tools::logger()->warn("MV_CC_StartGrabbing failed: {:#x}", ret);
@@ -133,12 +152,19 @@ void HikRobot::capture_start()
       const auto & frame_info = raw.stFrameInfo;
       auto pixel_type = frame_info.enPixelType;
       cv::Mat dst_image;
-      const static std::unordered_map<MvGvspPixelType, cv::ColorConversionCodes> type_map = {
-        {PixelType_Gvsp_BayerGR8, cv::COLOR_BayerGR2RGB},
-        {PixelType_Gvsp_BayerRG8, cv::COLOR_BayerRG2RGB},
-        {PixelType_Gvsp_BayerGB8, cv::COLOR_BayerGB2RGB},
-        {PixelType_Gvsp_BayerBG8, cv::COLOR_BayerBG2RGB}};
-      cv::cvtColor(img, dst_image, type_map.at(pixel_type));
+      // 根据像素格式进行颜色转换
+      if (pixel_type == PixelType_Gvsp_BGR8_Packed) {
+        // BGR8 格式已经是彩色图像，直接使用（需要重新创建3通道Mat）
+        dst_image = cv::Mat(cv::Size(frame_info.nWidth, frame_info.nHeight), CV_8UC3, raw.pBufAddr).clone();
+      } else {
+        // Bayer 格式需要转换
+        const static std::unordered_map<MvGvspPixelType, cv::ColorConversionCodes> type_map = {
+          {PixelType_Gvsp_BayerGR8, cv::COLOR_BayerGR2RGB},
+          {PixelType_Gvsp_BayerRG8, cv::COLOR_BayerRG2RGB},
+          {PixelType_Gvsp_BayerGB8, cv::COLOR_BayerGB2RGB},
+          {PixelType_Gvsp_BayerBG8, cv::COLOR_BayerBG2RGB}};
+        cv::cvtColor(img, dst_image, type_map.at(pixel_type));
+      }
       img = dst_image;
 
       queue_.push({img, timestamp});

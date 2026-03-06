@@ -10,6 +10,7 @@
 #include "io/camera/camera.hpp"
 #include "io/cboard/cboard.hpp"
 #include "io/dm_imu/dm_imu.hpp"
+#include "io/gimbal/gimbal.hpp"
 #include "tools/img_tools/img_tools.hpp"
 #include "tools/logger/logger.hpp"
 #include "tools/math_tools/math_tools.hpp"
@@ -38,6 +39,7 @@ void capture_loop(
   // 根据配置选择IMU数据源
   std::unique_ptr<io::CBoard> cboard;
   std::unique_ptr<io::DM_IMU> dm_imu;
+  std::shared_ptr<io::Gimbal> gimbal;
   std::function<Eigen::Quaterniond(std::chrono::steady_clock::time_point)> imu_getter;
 
   if (imu_source == "can" || imu_source == "CBoard") {
@@ -52,8 +54,15 @@ void capture_loop(
       return dm_imu->imu_at(t);
     };
     tools::logger()->info("[Capture] 使用串口(DM_IMU)读取IMU数据");
+  } else if (imu_source == "gimbal") {
+    gimbal = std::make_shared<io::Gimbal>(config_path);
+    imu_getter = [gimbal](std::chrono::steady_clock::time_point t) -> Eigen::Quaterniond {
+      return gimbal->q(t);
+    };
+    tools::logger()->info("[Capture] 使用云台(gimbal)串口读取IMU/姿态数据");
   } else {
-    tools::logger()->error("[Capture] 未知的IMU数据源: {}，支持的值: can, dm_imu", imu_source);
+    tools::logger()->error(
+      "[Capture] 未知的IMU数据源: {}，支持的值: can, dm_imu, gimbal", imu_source);
     return;
   }
 

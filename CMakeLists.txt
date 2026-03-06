@@ -106,6 +106,36 @@ target_link_libraries(planner_test ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim too
 add_executable(planner_test_offline tests/planner_test_offline.cpp)
 target_link_libraries(planner_test_offline ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim tools io)
 
+add_executable(video_detect_test tests/video_detect_test.cpp)
+target_link_libraries(video_detect_test ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim tools io)
+
+add_executable(camera_fps_test tests/camera_fps_test.cpp)
+target_link_libraries(camera_fps_test ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim tools io)
+
+add_executable(full_pipeline_test tests/full_pipeline_test.cpp)
+target_link_libraries(full_pipeline_test ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim tools io)
+
+add_executable(yolov8_pose_infer_test tests/yolov8_pose_infer_test.cpp)
+target_link_libraries(yolov8_pose_infer_test ${OpenCV_LIBS} openvino::runtime)
+
+add_executable(yolov8_pose_video_detect tests/yolov8_pose_video_detect.cpp)
+target_link_libraries(yolov8_pose_video_detect ${OpenCV_LIBS} openvino::runtime)
+
+add_executable(yolov5_batch_infer tests/yolov5_batch_infer.cpp)
+target_link_libraries(yolov5_batch_infer ${OpenCV_LIBS} openvino::runtime)
+
+add_executable(yolo26n_pose_infer_test tests/yolo26n_pose_infer_test.cpp)
+target_link_libraries(yolo26n_pose_infer_test ${OpenCV_LIBS} openvino::runtime)
+
+add_executable(yolo26n_pose_video_detect tests/yolo26n_pose_video_detect.cpp)
+target_link_libraries(yolo26n_pose_video_detect ${OpenCV_LIBS} openvino::runtime)
+
+add_executable(yolo26n_v2_infer_test tests/yolo26n_v2_infer_test.cpp)
+target_link_libraries(yolo26n_v2_infer_test openvino::runtime)
+
+add_executable(yolo26n_v2_video_detect tests/yolo26n_v2_video_detect.cpp)
+target_link_libraries(yolo26n_v2_video_detect ${OpenCV_LIBS} openvino::runtime)
+
 # 检查 ROS 环境
 find_package(ament_cmake QUIET)
 find_package(rclcpp QUIET)
