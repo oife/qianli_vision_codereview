@@ -1,11 +1,10 @@
 #ifndef AUTO_AIM__CLASSIFIER_HPP
 #define AUTO_AIM__CLASSIFIER_HPP
 
-#include <opencv2/opencv.hpp>
-#include <openvino/openvino.hpp>
 #include <string>
 
 #include "tasks/auto_aim/armor/armor.hpp"
+#include "tasks/auto_aim/backend/backend.hpp"
 
 namespace auto_aim
 {
@@ -16,12 +15,11 @@ public:
 
   void classify(Armor & armor);
 
-  void ovclassify(Armor & armor);
+  void backend_classify(Armor & armor);
 
 private:
   cv::dnn::Net net_;
-  ov::Core core_;
-  ov::CompiledModel compiled_model_;
+  Backend backend_;
 };
 
 }  // namespace auto_aim

@@ -11,7 +11,7 @@
 namespace auto_aim
 {
 YOLOV5::YOLOV5(const std::string & config_path, bool debug)
-: debug_(debug), detector_(config_path, false)
+: debug_(debug), detector_(config_path, false), backend_(config_path)
 {
   auto yaml = YAML::LoadFile(config_path);
 
@@ -31,27 +31,13 @@ YOLOV5::YOLOV5(const std::string & config_path, bool debug)
 
   save_path_ = "imgs";
   std::filesystem::create_directory(save_path_);
-  auto model = core_.read_model(model_path_);
-  ov::preprocess::PrePostProcessor ppp(model);
-  auto & input = ppp.input();
 
-  input.tensor()
-    .set_element_type(ov::element::u8)
-    .set_shape({1, 640, 640, 3})
-    .set_layout("NHWC")
-    .set_color_format(ov::preprocess::ColorFormat::BGR);
+  BackendConfig config;
+  config.input_size = cv::Size(640, 640);
 
-  input.model().set_layout("NCHW");
-
-  input.preprocess()
-    .convert_element_type(ov::element::f32)
-    .convert_color(ov::preprocess::ColorFormat::RGB)
-    .scale(255.0);
-
-  // TODO: ov::hint::performance_mode(ov::hint::PerformanceMode::LATENCY)
-  model = ppp.build();
-  compiled_model_ = core_.compile_model(
-    model, device_, ov::hint::performance_mode(ov::hint::PerformanceMode::LATENCY));
+  if (!backend_.init(model_path_, config)) {
+    throw std::runtime_error("Backend initializing failed");
+  }
 }
 
 std::list<Armor> YOLOV5::detect(const cv::Mat & raw_img, int frame_count)
@@ -76,28 +62,10 @@ std::list<Armor> YOLOV5::detect(const cv::Mat & raw_img, int frame_count)
     bgr_img = raw_img;
   }
 
-  // 计算缩放比例，保持宽高比
-  auto x_scale = static_cast<double>(640) / bgr_img.rows;
-  auto y_scale = static_cast<double>(640) / bgr_img.cols;
-  auto scale = std::min(x_scale, y_scale);
-  auto h = static_cast<int>(bgr_img.rows * scale);
-  auto w = static_cast<int>(bgr_img.cols * scale);
-
-  // 图像预处理：缩放到640x640，并填充到模型输入尺寸
-  auto input = cv::Mat(640, 640, CV_8UC3, cv::Scalar(0, 0, 0));
-  auto roi = cv::Rect(0, 0, w, h);
-  cv::resize(bgr_img, input(roi), {w, h});
-  ov::Tensor input_tensor(ov::element::u8, {1, 640, 640, 3}, input.data);
-
-  // 模型推理
-  auto infer_request = compiled_model_.create_infer_request();
-  infer_request.set_input_tensor(input_tensor);
-  infer_request.infer();
-
-  // 获取模型输出
-  auto output_tensor = infer_request.get_output_tensor();
-  auto output_shape = output_tensor.get_shape();
-  cv::Mat output(output_shape[1], output_shape[2], CV_32F, output_tensor.data());
+  double scale;
+  cv::Mat output;
+  auto ctx = backend_.create_ctx();
+  backend_.execute(bgr_img, output, scale, ctx.get());
 
   return parse(scale, output, raw_img, frame_count);
 }

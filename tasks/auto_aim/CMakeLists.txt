@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 
 set(OpenVINO_DIR "/opt/intel/openvino_2024.6.0/runtime/cmake")
 
+find_package(Eigen3 REQUIRED)
 find_package(OpenVINO REQUIRED COMPONENTS Runtime)
 
 add_subdirectory(planner/tinympc)
@@ -25,6 +26,8 @@ add_library(auto_aim OBJECT
     multithread/mt_detector.cpp
     planner/planner.cpp
     planner/quintic_polynomial/quintic_polynomial.cpp
+    backend/backend.cpp
+    backend/openvino_backend.cpp
 )
 
 target_link_libraries(auto_aim io openvino::runtime tinympcstatic)
