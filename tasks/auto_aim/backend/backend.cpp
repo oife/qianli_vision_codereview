@@ -42,20 +42,7 @@ bool BackendBase::execute(const cv::Mat & img, cv::Mat & target, double & scale,
 
 Backend::Backend(const std::string config_path)
 {
-  auto yaml = YAML::LoadFile(config_path);
-  std::string backend_type = yaml["backend"].as<std::string>();
-#ifdef OPENVINO_AVAILABLE
-  if (backend_type == "openvino") {
-    backend_ = std::make_unique<OpenVINOBackend>(config_path);
-  }
-#endif
-#ifdef TENSORRT_AVAILABLE
-  if (backend_type == "tensorrt") {
-    backend_ = std::make_unique<TensorRTBackend>(config_path);
-  }
-#endif
-  tools::logger()->error("未知的后端类型：{}", backend_type);
-  backend_ = nullptr;
+  backend_allocate(config_path);
 }
 
 bool Backend::init(const std::string & model_path, const BackendConfig & model_config)
@@ -83,4 +70,24 @@ bool Backend::execute(const cv::Mat & img, cv::Mat & target, double & scale, Bac
 const BackendConfig & Backend::get_model_config() const { return backend_->get_model_config(); }
 
 std::string Backend::get_name() const { return backend_->get_name(); }
-}  // namespace auto_aim
+
+void Backend::backend_allocate(const std::string config_path) {
+  auto yaml = YAML::LoadFile(config_path);
+  std::string backend_type = yaml["backend"].as<std::string>();
+#ifdef OPENVINO_AVAILABLE
+  if (backend_type == "openvino") {
+    backend_ = std::make_unique<OpenVINOBackend>(config_path);
+    return;
+  }
+#endif
+#ifdef TENSORRT_AVAILABLE
+  if (backend_type == "tensorrt") {
+    backend_ = std::make_unique<TensorRTBackend>(config_path);
+    return;
+  }
+#endif
+  tools::logger()->error("未知的后端类型：{}", backend_type);
+  backend_ = nullptr;
+}
+
+}  // namespace auto_aimbackend_typebackend_type

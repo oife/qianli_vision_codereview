@@ -156,6 +156,8 @@ public:
   std::string get_name() const;
 
 private:
+  void backend_allocate(const std::string config_path);
+
   std::unique_ptr<BackendBase> backend_;
 };
 
