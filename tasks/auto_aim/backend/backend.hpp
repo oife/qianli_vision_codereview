@@ -14,6 +14,7 @@ namespace auto_aim
 struct BackendConfig
 {
   cv::Size input_size{640, 640};
+  int input_type{CV_8UC3};
   cv::Scalar padding_color{0, 0, 0};
   bool preprocess{true};
 };
@@ -75,6 +76,10 @@ public:
    * @param scale 返回的缩放比例
    */
   bool execute(const cv::Mat & img, cv::Mat & target, double & scale, BackendCtx * ctx);
+
+  /**
+   * @brief 获取
+   */
 
   /**
    * @brief 获取模型配置

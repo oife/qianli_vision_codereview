@@ -20,8 +20,9 @@ BackendBase::BackendBase(const std::string & config_path) : config_path_(config_
 bool BackendBase::standarlize(const cv::Mat & img, cv::Mat & target, double & scale)
 {
   if (img.empty()) return false;
-  auto x_scale = static_cast<double>(model_config_.input_size.width) / img.rows;
-  auto y_scale = static_cast<double>(model_config_.input_size.height) / img.cols;
+  target = cv::Mat(model_config_.input_size, img.type(), model_config_.padding_color);
+  auto x_scale = static_cast<double>(model_config_.input_size.width) / img.cols;
+  auto y_scale = static_cast<double>(model_config_.input_size.height) / img.rows;
   scale = std::min(x_scale, y_scale);
 
   auto h = static_cast<int>(img.rows * scale);
@@ -34,16 +35,13 @@ bool BackendBase::standarlize(const cv::Mat & img, cv::Mat & target, double & sc
 
 bool BackendBase::execute(const cv::Mat & img, cv::Mat & target, double & scale, BackendCtx * ctx)
 {
-  auto input = cv::Mat(model_config_.input_size, CV_8UC3, model_config_.padding_color);
+  cv::Mat input;
   if (!standarlize(img, input, scale)) return false;
   if (!infer(input, target, ctx)) return false;
   return true;
 }
 
-Backend::Backend(const std::string config_path)
-{
-  backend_allocate(config_path);
-}
+Backend::Backend(const std::string config_path) { backend_allocate(config_path); }
 
 bool Backend::init(const std::string & model_path, const BackendConfig & model_config)
 {
@@ -71,7 +69,8 @@ const BackendConfig & Backend::get_model_config() const { return backend_->get_m
 
 std::string Backend::get_name() const { return backend_->get_name(); }
 
-void Backend::backend_allocate(const std::string config_path) {
+void Backend::backend_allocate(const std::string config_path)
+{
   auto yaml = YAML::LoadFile(config_path);
   std::string backend_type = yaml["backend"].as<std::string>();
 #ifdef OPENVINO_AVAILABLE
@@ -90,4 +89,4 @@ void Backend::backend_allocate(const std::string config_path) {
   backend_ = nullptr;
 }
 
-}  // namespace auto_aimbackend_typebackend_type
+}  // namespace auto_aim
