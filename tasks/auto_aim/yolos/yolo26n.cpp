@@ -193,21 +193,34 @@ std::list<Armor> YOLO26N::parse(
       default: name = ArmorName::not_armor; break;
     }
 
-    // 过滤 not_armor 和低置信度
-    if (name == ArmorName::not_armor) continue;
     if (det.confidence < min_confidence_) continue;
 
     bool is_partial = (det.visible_count < 3);
+    std::vector<float> vis = det.vis;  // 可修改的副本
 
-    // ArmorType: name 推断 + 关键点宽高比辅助（partial 装甲板关键点不全，默认 small）
+    // 退化四点检测筛选（仅对 4kpt not_armor）：
+    // 若 kpts[0]≈kpts[3]（左上≈左下）且 kpts[1]≈kpts[2]（右上≈右下），
+    // 说明两条灯条各自被压缩成了点，实质是伪四点，降级为 partial。
+    if (!is_partial && name == ArmorName::not_armor) {
+      float h_box = (float)det.box.height;
+      float thresh = h_box * 0.25f;
+      float left_span  = cv::norm(det.kpts[0] - det.kpts[3]);  // TL~BL
+      float right_span = cv::norm(det.kpts[1] - det.kpts[2]);  // TR~BR
+      if (left_span < thresh && right_span < thresh) {
+        is_partial = true;
+        vis[2] = 0.f;  // 将 BR 和 BL 的 visibility 置 0，只保留 TL, TR
+        vis[3] = 0.f;
+      }
+    }
+
+    // ArmorType
     ArmorType type = is_partial ? ArmorType::small : infer_armor_type(name, det.kpts);
 
-    // 构造 Armor（用 color_id/num_id 构造函数，再覆盖映射结果）
     Armor armor(det.color_id, det.name_id, det.confidence, det.box, det.kpts);
     armor.color = color;
     armor.name = name;
     armor.type = type;
-    armor.kpt_visibility = det.vis;
+    armor.kpt_visibility = vis;
     armor.partial = is_partial;
     armor.center_norm = get_center_norm(bgr_img, armor.center);
 
@@ -266,14 +279,55 @@ void YOLO26N::draw_detections(
   const cv::Mat & img, const std::list<Armor> & armors, int frame_count) const
 {
   auto detection = img.clone();
-  tools::draw_text(detection, fmt::format("[{}]", frame_count), {10, 30}, {255, 255, 255});
+  tools::draw_text(
+    detection, fmt::format("[{}] {} dets", frame_count, armors.size()), {10, 30},
+    {255, 255, 255});
+
+  // 记录已使用的文字位置，用于防重叠
+  std::vector<cv::Point2f> used_text_positions;
+  auto find_free_pos = [&](cv::Point2f pos) -> cv::Point2f {
+    const float min_dist = 22.f;  // 文字行高约 20px
+    for (int attempt = 0; attempt < 10; attempt++) {
+      bool conflict = false;
+      for (const auto & p : used_text_positions) {
+        if (cv::norm(pos - p) < min_dist) { conflict = true; break; }
+      }
+      if (!conflict) break;
+      pos.y += min_dist;  // 向下移动一行
+    }
+    used_text_positions.push_back(pos);
+    return pos;
+  };
+
   for (const auto & armor : armors) {
-    auto info = fmt::format(
-      "{:.2f} {} {} {}", armor.confidence, COLORS[armor.color], ARMOR_NAMES[armor.name],
-      ARMOR_TYPES[armor.type]);
-    tools::draw_points(detection, armor.points, {0, 255, 0});
-    tools::draw_text(detection, info, armor.center, {0, 255, 0});
+    cv::Scalar kpt_color  = armor.partial ? cv::Scalar(0, 165, 255) : cv::Scalar(0, 255, 0);
+    cv::Scalar text_color = armor.partial ? cv::Scalar(0, 165, 255) : cv::Scalar(0, 255, 0);
+
+    // 绘制关键点和连线（只画可见点）
+    std::vector<cv::Point> vis_pts;
+    for (int k = 0; k < 4; k++) {
+      if (k < (int)armor.kpt_visibility.size() && armor.kpt_visibility[k] > 0.5f) {
+        cv::Point pt(armor.points[k]);
+        cv::circle(detection, pt, 4, kpt_color, -1);
+        vis_pts.push_back(pt);
+      }
+    }
+    if (vis_pts.size() >= 2) {
+      for (size_t i = 0; i < vis_pts.size(); i++)
+        cv::line(detection, vis_pts[i], vis_pts[(i + 1) % vis_pts.size()], kpt_color, 2);
+    }
+
+    // 标签文字（防重叠）
+    std::string label = fmt::format(
+      "{:.0f}% {} {}{}", armor.confidence * 100,
+      COLORS[armor.color], ARMOR_NAMES[armor.name],
+      armor.partial ? " [P]" : "");
+    // 初始位置：装甲板中心上方 12px，缩放 0.5 后折算回原图坐标
+    cv::Point2f init_pos = armor.center + cv::Point2f(0, -12);
+    auto text_pos = find_free_pos(init_pos);
+    tools::draw_text(detection, label, text_pos, text_color);
   }
+
   cv::resize(detection, detection, {}, 0.5, 0.5);
   cv::imshow("detection", detection);
 }
