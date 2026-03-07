@@ -32,6 +32,8 @@ const std::string keys =
   "{config-path c  | configs/demo.yaml | yaml配置文件的路径}"
   "{start-index s  | 0                 | 视频起始帧下标    }"
   "{end-index e    | 0                 | 视频结束帧下标    }"
+  "{save-video     |                   | 保存输出视频的前缀路径（如 output_ ）}"
+  "{step           |                   | 逐帧模式（按任意键前进）}"
   "{@input-path    | assets/demo/demo  | avi和txt文件的路径}";
 
 int main(int argc, char * argv[])
@@ -46,6 +48,9 @@ int main(int argc, char * argv[])
   auto config_path = cli.get<std::string>("config-path");
   auto start_index = cli.get<int>("start-index");
   auto end_index = cli.get<int>("end-index");
+  auto save_prefix = cli.get<std::string>("save-video");
+  bool step_mode = cli.has("step");
+  bool save_video = !save_prefix.empty();
 
   tools::Plotter plotter;
   tools::Exiter exiter;
@@ -62,6 +67,10 @@ int main(int argc, char * argv[])
 
   cv::Mat img, drawing;
   auto t0 = std::chrono::steady_clock::now();
+
+  // 视频保存（如果指定了 --save-video）
+  cv::VideoWriter vw_reproj, vw_detect;
+  bool vw_initialized = false;
 
   auto_aim::Target last_target;
   io::Command last_command;
@@ -201,8 +210,19 @@ int main(int argc, char * argv[])
     plotter.plot(data);
 
     cv::resize(img, img, {}, 0.5, 0.5);  // 显示时缩小图片尺寸
+
+    // 保存视频帧
+    if (save_video) {
+      if (!vw_initialized) {
+        int fourcc = cv::VideoWriter::fourcc('M', 'J', 'P', 'G');
+        vw_reproj.open(save_prefix + "reprojection.avi", fourcc, 30, img.size());
+        vw_initialized = true;
+      }
+      vw_reproj.write(img);
+    }
+
     cv::imshow("reprojection", img);
-    auto key = cv::waitKey(30);
+    auto key = cv::waitKey(step_mode ? 0 : 30);
     if (key == 'q') break;
   }
 

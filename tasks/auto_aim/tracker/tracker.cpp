@@ -332,39 +332,167 @@ bool Tracker::update_target(std::list<Armor> & armors, std::chrono::steady_clock
 {
   target_.predict(t);
 
+  // ---- 第一步：找名称/类型完全匹配的完整装甲板（原有逻辑）----
   int found_count = 0;
-  double min_x = 1e10;  // 画面最左侧
   for (const auto & armor : armors) {
-    if (armor.partial) continue;  // partial 不计入 found_count
+    if (armor.partial) continue;
     if (armor.name != target_.name || armor.type != target_.armor_type) continue;
     found_count++;
-    min_x = armor.center.x < min_x ? armor.center.x : min_x;
+  }
+
+  // ---- 第二步：若严格匹配为0，尝试扩展关联（not_armor / 灰色击中装甲板）----
+  // 找最近的扩展候选用于 partial 判断的参考装甲板
+  const Armor * ref_armor_ptr = nullptr;
+  double ref_min_dist = 1e10;
+
+  if (found_count == 0) {
+    for (const auto & armor : armors) {
+      if (armor.partial) continue;
+      if (!is_same_vehicle_full(armor)) continue;
+      found_count++;
+      // 记录最近的完整候选作为 partial 判断的参考
+      double d = cv::norm(armor.center - cv::Point2f(
+        target_.armor_xyza_list().front()[0], target_.armor_xyza_list().front()[1]));
+      if (d < ref_min_dist) { ref_min_dist = d; ref_armor_ptr = &armor; }
+    }
+  } else {
+    // 严格匹配时，用严格匹配的第一个作为 partial 参考
+    for (const auto & armor : armors) {
+      if (armor.partial) continue;
+      if (armor.name != target_.name || armor.type != target_.armor_type) continue;
+      ref_armor_ptr = &armor;
+      break;
+    }
   }
 
   if (found_count == 0) return false;
 
-  // 正常 PnP + EKF update（仅完整检测）
+  // ---- 第三步：完整装甲板 PnP + EKF update ----
   for (auto & armor : armors) {
     if (armor.partial) continue;
-    if (
-      armor.name != target_.name || armor.type != target_.armor_type
-      //  || armor.center.x != min_x
-    )
-      continue;
+    bool strict_match = (armor.name == target_.name && armor.type == target_.armor_type);
+    bool extended_match = !strict_match && is_same_vehicle_full(armor);
+    if (!strict_match && !extended_match) continue;
 
     solver_.solve(armor);
-
     target_.update(armor);
   }
 
-  // 像素空间 EKF update（partial 检测：2kpt 侧面装甲板）
+  // ---- 第四步：partial（2kpt）装甲板像素空间 EKF update ----
   for (const auto & armor : armors) {
     if (!armor.partial) continue;
-    if (armor.name != target_.name) continue;
-    target_.update_pixel(armor, solver_);
+
+    // 方式 A：名称匹配（原逻辑）
+    bool name_match = (armor.name == target_.name);
+
+    // 方式 B：not_armor 的 2kpt，用几何约束判断是否同一辆车
+    bool geom_match = false;
+    if (!name_match && armor.name == ArmorName::not_armor && ref_armor_ptr != nullptr) {
+      geom_match = is_same_vehicle_partial(armor, *ref_armor_ptr);
+    }
+
+    if (name_match || geom_match) {
+      target_.update_pixel(armor, solver_);
+    }
   }
 
   return true;
+}
+
+// ---- 辅助函数实现 ----
+
+bool Tracker::is_same_vehicle_full(const Armor & armor) const
+{
+  // 情况①：类别不自信被归为 not_armor，但颜色和类型与目标一致
+  bool is_not_armor_candidate = (armor.name == ArmorName::not_armor) &&
+                                 (armor.color == enemy_color_) &&
+                                 (armor.type == target_.armor_type);
+
+  // 情况③：被击中，颜色变灰（extinguish），但类别和类型与目标一致
+  bool is_hit_candidate = (armor.color == Color::extinguish) &&
+                           (armor.name == target_.name) &&
+                           (armor.type == target_.armor_type);
+
+  if (!is_not_armor_candidate && !is_hit_candidate) return false;
+
+  // 位置约束：候选装甲板中心必须落在 EKF 预测的某面装甲板的重投影附近
+  // 对每面预测装甲板做重投影，取候选中心到最近重投影中心的像素距离
+  auto xyza_list = target_.armor_xyza_list();
+  double min_reproj_dist = 1e10;
+  for (const auto & xyza : xyza_list) {
+    auto reproj = solver_.reproject_armor(xyza.head(3), xyza[3], target_.armor_type, target_.name);
+    if (reproj.empty()) continue;
+    // 用重投影四点的中心估算重投影中心
+    cv::Point2f reproj_center(0, 0);
+    for (const auto & p : reproj) reproj_center += p;
+    reproj_center /= (float)reproj.size();
+    double d = cv::norm(armor.center - reproj_center);
+    min_reproj_dist = std::min(min_reproj_dist, d);
+  }
+
+  // 阈值：允许最近重投影中心偏差不超过 300px（等价约束）
+  return min_reproj_dist < 300.0;
+}
+
+bool Tracker::is_same_vehicle_partial(const Armor & armor, const Armor & ref_armor) const
+{
+  // armor: 2kpt partial（not_armor），只有两个可见关键点（一条灯条的上下端点）
+  // ref_armor: 距离最近的完整装甲板（已严格或扩展匹配的参考）
+
+  // --- 约束 1：像素距离（2kpt 装甲板中心到参考装甲板中心不能太远）---
+  double pixel_dist = cv::norm(armor.center - ref_armor.center);
+  if (pixel_dist > 400.0) return false;  // 超过 400px 肯定不是同一辆车
+
+  // --- 约束 2：灯条延长线与装甲板短边延长线的交点在图像上方 ---
+  // 取 2kpt partial 的两个可见点（一条灯条的上端和下端）
+  cv::Point2f p_top, p_bot;
+  bool found_top = false, found_bot = false;
+  for (int k = 0; k < 4; k++) {
+    if (k < (int)armor.kpt_visibility.size() && armor.kpt_visibility[k] > 0.5f) {
+      if (!found_top) { p_top = armor.points[k]; found_top = true; }
+      else { p_bot = armor.points[k]; found_bot = true; break; }
+    }
+  }
+  if (!found_top || !found_bot) return false;
+
+  // 取参考装甲板的"更近的那条短边"（左灯条或右灯条）
+  // 左灯条：points[0](左上) 和 points[3](左下)
+  // 右灯条：points[1](右上) 和 points[2](右下)
+  double dist_left = cv::norm(armor.center - (ref_armor.points[0] + ref_armor.points[3]) / 2.f);
+  double dist_right = cv::norm(armor.center - (ref_armor.points[1] + ref_armor.points[2]) / 2.f);
+  cv::Point2f ref_top, ref_bot;
+  if (dist_left < dist_right) {
+    ref_top = ref_armor.points[0];  // 左上
+    ref_bot = ref_armor.points[3];  // 左下
+  } else {
+    ref_top = ref_armor.points[1];  // 右上
+    ref_bot = ref_armor.points[2];  // 右下
+  }
+
+  // 计算两条直线的交点
+  // 直线1（灯条延长线）：p_top → p_bot → 延长
+  // 直线2（参考短边延长线）：ref_top → ref_bot → 延长
+  // 用参数方程求交点：P = A + t*(B-A), Q = C + s*(D-C)
+  auto line_intersect = [](cv::Point2f a, cv::Point2f b, cv::Point2f c, cv::Point2f d,
+                            cv::Point2f & intersection) -> bool {
+    float denom = (a.x - b.x) * (c.y - d.y) - (a.y - b.y) * (c.x - d.x);
+    if (std::abs(denom) < 1e-6f) return false;  // 平行
+    float t = ((a.x - c.x) * (c.y - d.y) - (a.y - c.y) * (c.x - d.x)) / denom;
+    intersection = a + t * (b - a);
+    return true;
+  };
+
+  cv::Point2f intersect;
+  if (!line_intersect(p_top, p_bot, ref_top, ref_bot, intersect)) {
+    // 平行灯条（正对相机时两灯条平行），此时直接用距离约束即可
+    return pixel_dist < 250.0;
+  }
+
+  // 交点在图像上方（y 坐标小于两个装甲板中心的平均 y）说明是同一辆车
+  float avg_center_y = (armor.center.y + ref_armor.center.y) / 2.f;
+  bool intersection_above = (intersect.y < avg_center_y);
+
+  return intersection_above;
 }
 
 }  // namespace auto_aim

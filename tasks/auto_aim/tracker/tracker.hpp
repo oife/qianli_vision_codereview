@@ -48,6 +48,16 @@ private:
   bool set_target(std::list<Armor> & armors, std::chrono::steady_clock::time_point t);
 
   bool update_target(std::list<Armor> & armors, std::chrono::steady_clock::time_point t);
+
+  // ---- 扩展关联策略 ----
+
+  /// 判断一个完整装甲板（≥3kpt）是否可视为和目标同一辆车
+  /// 涵盖：①类别不自信被归为 not_armor；③装甲板被击中颜色变灰
+  bool is_same_vehicle_full(const Armor & armor) const;
+
+  /// 判断一个 2kpt partial 装甲板是否来自目标同一辆车
+  /// 使用：①空间距离；②灯条延长线与装甲板短边延长线交点在图像上方的几何约束
+  bool is_same_vehicle_partial(const Armor & armor, const Armor & ref_armor) const;
 };
 
 }  // namespace auto_aim
