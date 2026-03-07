@@ -11,7 +11,7 @@
  *
  * 2. 云台控制命令发送
  *    - 以约 9 ms 一次（≈110 Hz）的频率调用 `gimbal.send(...)` 向云台发送 `VisionToGimbal` 控制帧。
- *    - 始终使能云台控制（control=true），并给出一个固定的 yaw 目标（1 rad），用于验证云台能否按期望转动。
+ *    - 始终使能云台控制（control=true），yaw 目标在 0° 与 90° 之间循环切换，用于验证云台能否按期望转动。
  *
  * 3. 开火节奏与打弹延迟测试
  *    - 命令行参数 `-f`/`--f` 控制是否启用开火测试，仅在开启时才向云台下发开火请求。
@@ -71,6 +71,11 @@ int main(int argc, char * argv[])
   auto fire_stamp = std::chrono::steady_clock::now();
   auto first_fired = false;
 
+  // yaw 在 0° 与 90° 之间循环切换
+  constexpr double YAW_CYCLE_INTERVAL = 3.0;  // 每个目标停留 3 秒
+  auto yaw_switch_time = std::chrono::steady_clock::now();
+  double target_yaw = 0;  // 0 弧度
+
   while (!exiter.exit()) {
     auto mode = gimbal.mode();
 
@@ -105,7 +110,12 @@ int main(int argc, char * argv[])
     }
     fire_count++;
 
-    gimbal.send(true, test_fire && fire, 1, 0, 0, 0, 0, 0);
+    // 每隔 YAW_CYCLE_INTERVAL 秒切换 yaw 目标：0° <-> 90°
+    if (tools::delta_time(t, yaw_switch_time) >= YAW_CYCLE_INTERVAL) {
+      yaw_switch_time = t;
+      target_yaw = (target_yaw == 0) ? (CV_PI / 2) : 0;
+    }
+    gimbal.send(true, test_fire && fire, target_yaw, 0, 0, 0, 0, 0);
 
     nlohmann::json data;
     data["q_yaw"] = ypr[0];
