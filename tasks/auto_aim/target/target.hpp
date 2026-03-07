@@ -19,6 +19,8 @@
 
 namespace auto_aim
 {
+class Solver;  // 前向声明
+
 
 /**
  * @brief 目标跟踪类
@@ -76,6 +78,13 @@ public:
    * @param armor 新的装甲板观测数据
    */
   void update(const Armor & armor);
+
+  /**
+   * @brief 使用像素坐标观测更新状态（用于部分可见的装甲板，如侧面 2kpt 检测）
+   * @param armor 部分可见的装甲板观测数据
+   * @param solver 解算器（用于投影计算）
+   */
+  void update_pixel(const Armor & armor, const Solver & solver);
 
   /**
    * @brief 获取扩展卡尔曼滤波器的状态向量

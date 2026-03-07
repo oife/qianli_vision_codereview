@@ -4,6 +4,7 @@
 
 #include "tools/logger/logger.hpp"
 #include "tools/math_tools/math_tools.hpp"
+#include "tasks/auto_aim/solver/solver.hpp"
 
 namespace auto_aim
 {
@@ -317,5 +318,93 @@ Eigen::MatrixXd Target::h_jacobian(const Eigen::VectorXd & x, int id) const
 }
 
 bool Target::checkinit() { return isinit; }
+
+void Target::update_pixel(const Armor & armor, const Solver & solver)
+{
+  // 收集可见关键点的索引和像素坐标
+  std::vector<int> visible_indices;
+  std::vector<cv::Point2f> visible_pixels;
+  for (int k = 0; k < 4; k++) {
+    if (k < (int)armor.kpt_visibility.size() && armor.kpt_visibility[k] > 0.5f) {
+      visible_indices.push_back(k);
+      visible_pixels.push_back(armor.points[k]);
+    }
+  }
+  if ((int)visible_indices.size() < 2) return;
+
+  // 通过像素重投影误差匹配最佳装甲板 ID
+  int best_id = 0;
+  double min_error = 1e10;
+  for (int i = 0; i < armor_num_; i++) {
+    auto angle = tools::limit_rad(ekf_.x[6] + i * 2 * CV_PI / armor_num_);
+    Eigen::Vector3d xyz = h_armor_xyz(ekf_.x, i);
+    auto reproj = solver.reproject_armor(xyz, angle, armor_type, name);
+
+    double error = 0;
+    for (int k = 0; k < (int)visible_indices.size(); k++) {
+      error += cv::norm(visible_pixels[k] - reproj[visible_indices[k]]);
+    }
+    if (error < min_error) {
+      min_error = error;
+      best_id = i;
+    }
+  }
+
+  // 重投影误差过大说明匹配不可靠，跳过
+  if (min_error > 200.0) return;
+
+  const int id = best_id;
+  const int obs_dim = 2 * (int)visible_indices.size();
+
+  // 构造观测向量：可见关键点的像素坐标
+  Eigen::VectorXd z(obs_dim);
+  for (int k = 0; k < (int)visible_indices.size(); k++) {
+    z[2 * k] = visible_pixels[k].x;
+    z[2 * k + 1] = visible_pixels[k].y;
+  }
+
+  // 观测函数：状态 → 预测的可见关键点像素坐标
+  auto h = [&](const Eigen::VectorXd & x_state) -> Eigen::VectorXd {
+    auto angle_i = tools::limit_rad(x_state[6] + id * 2 * CV_PI / armor_num_);
+    Eigen::Vector3d xyz_i = h_armor_xyz(x_state, id);
+    auto reproj = solver.reproject_armor(xyz_i, angle_i, armor_type, name);
+
+    Eigen::VectorXd z_pred(obs_dim);
+    for (int k = 0; k < (int)visible_indices.size(); k++) {
+      z_pred[2 * k] = reproj[visible_indices[k]].x;
+      z_pred[2 * k + 1] = reproj[visible_indices[k]].y;
+    }
+    return z_pred;
+  };
+
+  // 数值雅可比（解析形式经过投影链太长，用数值差分更实际）
+  const int state_dim = ekf_.x.size();
+  Eigen::MatrixXd H(obs_dim, state_dim);
+  constexpr double eps = 1e-5;
+  Eigen::VectorXd h0 = h(ekf_.x);
+  for (int j = 0; j < state_dim; j++) {
+    Eigen::VectorXd x_pert = ekf_.x;
+    x_pert[j] += eps;
+    // 角度状态扰动后限幅
+    if (j == 6) x_pert[j] = tools::limit_rad(x_pert[j]);
+    Eigen::VectorXd h_pert = h(x_pert);
+    H.col(j) = (h_pert - h0) / eps;
+  }
+
+  // 观测噪声（像素方差，partial 检测噪声较大）
+  Eigen::VectorXd R_dig = Eigen::VectorXd::Constant(obs_dim, 400.0);  // ~20px 标准差
+  Eigen::MatrixXd R = R_dig.asDiagonal();
+
+  // 像素坐标差不涉及角度 wrap，直接相减
+  auto z_subtract = [](const Eigen::VectorXd & a, const Eigen::VectorXd & b) -> Eigen::VectorXd {
+    return a - b;
+  };
+
+  ekf_.update(z, H, R, h, z_subtract);
+
+  tools::logger()->debug(
+    "[Target] pixel update: id={}, visible={}, reproj_err={:.1f}", id,
+    (int)visible_indices.size(), min_error);
+}
 
 }  // namespace auto_aim

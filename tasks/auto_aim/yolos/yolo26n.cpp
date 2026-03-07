@@ -101,6 +101,7 @@ std::list<Armor> YOLO26N::parse(
     int name_id;
     std::vector<cv::Point2f> kpts;
     std::vector<float> vis;
+    int visible_count;
   };
   std::vector<RawDet> raw_dets;
   std::vector<cv::Rect> nms_boxes;
@@ -152,11 +153,11 @@ std::list<Armor> YOLO26N::parse(
     std::vector<cv::Point2f> kpts = {raw_kpts[0], raw_kpts[3], raw_kpts[2], raw_kpts[1]};
     std::vector<float> vis = {raw_vis[0], raw_vis[3], raw_vis[2], raw_vis[1]};
 
-    // 丢弃可见关键点 < 3 的检测
-    if (visible_count < 3) continue;
+    // 丢弃可见关键点 < 2 的检测（2kpt 保留用于像素约束）
+    if (visible_count < 2) continue;
 
     cv::Rect box((int)x1, (int)y1, (int)(x2 - x1), (int)(y2 - y1));
-    raw_dets.push_back({box, max_conf, max_color, max_name, kpts, vis});
+    raw_dets.push_back({box, max_conf, max_color, max_name, kpts, vis, visible_count});
     nms_boxes.push_back(box);
     nms_confs.push_back(max_conf);
   }
@@ -196,8 +197,10 @@ std::list<Armor> YOLO26N::parse(
     if (name == ArmorName::not_armor) continue;
     if (det.confidence < min_confidence_) continue;
 
-    // ArmorType: name 推断 + 关键点宽高比辅助
-    ArmorType type = infer_armor_type(name, det.kpts);
+    bool is_partial = (det.visible_count < 3);
+
+    // ArmorType: name 推断 + 关键点宽高比辅助（partial 装甲板关键点不全，默认 small）
+    ArmorType type = is_partial ? ArmorType::small : infer_armor_type(name, det.kpts);
 
     // 构造 Armor（用 color_id/num_id 构造函数，再覆盖映射结果）
     Armor armor(det.color_id, det.name_id, det.confidence, det.box, det.kpts);
@@ -205,6 +208,7 @@ std::list<Armor> YOLO26N::parse(
     armor.name = name;
     armor.type = type;
     armor.kpt_visibility = det.vis;
+    armor.partial = is_partial;
     armor.center_norm = get_center_norm(bgr_img, armor.center);
 
     armors.push_back(armor);

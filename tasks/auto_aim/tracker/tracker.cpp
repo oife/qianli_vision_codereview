@@ -335,6 +335,7 @@ bool Tracker::update_target(std::list<Armor> & armors, std::chrono::steady_clock
   int found_count = 0;
   double min_x = 1e10;  // 画面最左侧
   for (const auto & armor : armors) {
+    if (armor.partial) continue;  // partial 不计入 found_count
     if (armor.name != target_.name || armor.type != target_.armor_type) continue;
     found_count++;
     min_x = armor.center.x < min_x ? armor.center.x : min_x;
@@ -342,7 +343,9 @@ bool Tracker::update_target(std::list<Armor> & armors, std::chrono::steady_clock
 
   if (found_count == 0) return false;
 
+  // 正常 PnP + EKF update（仅完整检测）
   for (auto & armor : armors) {
+    if (armor.partial) continue;
     if (
       armor.name != target_.name || armor.type != target_.armor_type
       //  || armor.center.x != min_x
@@ -352,6 +355,13 @@ bool Tracker::update_target(std::list<Armor> & armors, std::chrono::steady_clock
     solver_.solve(armor);
 
     target_.update(armor);
+  }
+
+  // 像素空间 EKF update（partial 检测：2kpt 侧面装甲板）
+  for (const auto & armor : armors) {
+    if (!armor.partial) continue;
+    if (armor.name != target_.name) continue;
+    target_.update_pixel(armor, solver_);
   }
 
   return true;

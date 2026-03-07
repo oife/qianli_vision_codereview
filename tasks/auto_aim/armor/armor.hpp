@@ -142,6 +142,7 @@ struct Armor
   cv::Mat pattern;                    ///< 装甲板图案图像
   double confidence;                  ///< 置信度
   bool duplicated;                    ///< 是否为重复检测
+  bool partial = false;               ///< 是否为部分检测（<3个可见关键点，无法PnP但可用于像素约束）
 
   Eigen::Vector3d xyz_in_gimbal;      ///< 云台坐标系下的3D坐标（单位：m）
   Eigen::Vector3d xyz_in_world;       ///< 世界坐标系下的3D坐标（单位：m）
