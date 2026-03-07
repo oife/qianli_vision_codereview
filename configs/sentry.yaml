@@ -1,17 +1,17 @@
-# enemy_color: "red"
-enemy_color: "blue"
-
+enemy_color: "red"
+# enemy_color: "blue"
 
 #####-----神经网络参数-----#####
 backend: openvino
 yolo_name: yolov5
 classify_model: assets/tiny_resnet.onnx
+yolo26n_model_path: assets/best_fp32.onnx
 yolo11_model_path: assets/yolo11.xml
 yolov8_model_path: assets/yolov8.xml
 yolov5_model_path: assets/yolov5.xml
-device: CPU
+device: GPU
 min_confidence: 0.8
-use_traditional: true
+use_traditional: false
 
 #####-----ROI-----#####
 roi: 
@@ -21,24 +21,6 @@ roi:
   height: 600
 
 use_roi: false
-
-#####-----USB相机参数-----#####
-image_width: 320
-image_height: 240
-fov_h: 57.7 #87.7
-fov_v: 56.7 
-new_fov_h: 27 #67
-new_fov_v: 40.9
-usb_frame_rate: 30
-usb_exposure: 500 #1-80000______250
-usb_gamma: 160
-usb_gain: 10 #0-96
-
-#####-----工业相机参数-----#####
-camera_name: "hikrobot"
-exposure_ms: 0.8
-gain: 16.9
-vid_pid: "2bdf:0001"
 
 #####-----传统方法参数-----#####
 threshold: 150
@@ -52,32 +34,30 @@ max_side_ratio: 1.5
 max_rectangular_error: 25 # degree
 min_confidence: 0.8
 
-#####-----cboard参数-----#####
-quaternion_canid: 0x01
-bullet_speed_canid: 0x110
-send_canid: 0xff
-can_interface: "can0"
+#####-----工业相机参数-----#####
+camera_name: "hikrobot"
+exposure_ms: 8
+gain: 5.0
+vid_pid: "2bdf:0001"
 
 #####-----tracker参数-----#####
 min_detect_count: 5
-max_temp_lost_count: 25
+max_temp_lost_count: 15
 outpost_max_temp_lost_count: 75
 
 #####-----aimer参数-----#####
-yaw_offset: -0.8 # degree -2.5
-pitch_offset: -1  # degree 2
-comming_angle: 60 # degree
+yaw_offset: 2 # degree -2.5
+pitch_offset: 6.5 # degree 2
+comming_angle: 55 # degree
 leaving_angle: 20 # degree
-left_yaw_offset: -1
-right_yaw_offset: -0.6
-decision_speed: 10 # rad/s
-high_speed_delay_time: 0.026 # s
-low_speed_delay_time: 0.010 # s
+decision_speed: 7 # rad/s
+high_speed_delay_time: 0.0 # s
+low_speed_delay_time: 0.0 # s planner use this value
 
 #####-----shooter参数-----#####
-first_tolerance: 5 # 近距离射击容差，degree
+first_tolerance: 3 # 近距离射击容差，degree
 second_tolerance: 2 # 远距离射击容差，degree
-judge_distance: 3 #距离判断阈值
+judge_distance: 2 #距离判断阈值
 auto_fire: true # 是否由自瞄控制射击
 
 #####-----decider参数-----#####
@@ -86,12 +66,39 @@ mode: 1
 #####-----工业相机标定参数-----#####
 R_gimbal2imubody: [1, 0, 0, 0, 1, 0, 0, 0, 1]
 
-# 重投影误差: 0.1833px
-camera_matrix: [2414.9359264386621, 0, 717.26243105567414, 0, 2418.0489262208148, 582.68540529942845, 0, 0, 1]
-distort_coeffs: [-0.0209453389287673, 0.15028138841073832, -0.0006517722113234505, -0.0016861906197686788, 0]
+# 重投影误差: 0.0628px
+camera_matrix: [2407.3275522592235, 0, 682.70679160267559, 0, 2405.7278850403027, 544.79474139335832, 0, 0, 1]
+distort_coeffs: [-0.033095697354504967, 0.16474749733432545, -0.00075175349548928629, -0.0037952094925828746, 0]
 
-# 相机同理想情况的偏角: yaw-1.11 pitch0.01 roll-0.06 degree
-# 标定板到世界坐标系原点的水平距离: 1.20 m
-# 标定板同竖直摆放时的偏角: yaw123.89 pitch14.05 roll-0.86 degree
-R_camera2gimbal: [0.01928451708725664, 0.00012696140743255463, 0.99981402834802846, -0.99981344688553653, -0.0010834913551969569, 0.019284643459122196, 0.0010857382619952124, -0.99999940496346484, 0.00010604311483339372]
-t_camera2gimbal: [0.13089617453251859, 0.0038468007459533785, 0.094139945222010288]
+# 相机同理想情况的偏角: yaw-177.63 pitch5.63 roll1.59 degree
+R_camera2gimbal: [0.038903471526421152, -0.099143034923876619, -0.99431241495280343, 0.99886101860615917, -0.023651867925617021, 0.04143977138806719, -0.027625810617229723, -0.99479206257876429, 0.098109973081378365]
+t_camera2gimbal: [-0.11074145718595677, 0.0081615522943432484, 0.061129017757799851]
+
+#####-----gimbal参数-----#####
+com_port: "/dev/ttyACM0"
+yaw_kp: 0
+yaw_kd: 0
+pitch_kp: 0
+pitch_kd: 0
+
+#####-----planner-----#####
+fire_thresh: 0.0035
+
+# 求解器类型选择: "mpc" 或 "quintic_poly"
+solver_type: "quintic_poly"
+
+# MPC求解器参数（仅在solver_type="mpc"时使用）
+max_yaw_acc: 50
+Q_yaw: [9e6, 0]
+R_yaw: [1]
+
+max_pitch_acc: 100
+Q_pitch: [9e6, 0]
+R_pitch: [1]
+
+# 五次多项式求解器参数（仅在solver_type="quintic_poly"时使用）
+max_yaw_vel: 3.0      # yaw轴最大角速度（rad/s）
+max_yaw_acc: 20.0      # yaw轴最大角加速度（rad/s²）
+max_pitch_vel: 10.0    # pitch轴最大角速度（rad/s）
+max_pitch_acc: 100.0   # pitch轴最大角加速度（rad/s²）
+jump_threshold: 0.05     # 突变检测阈值（rad/s），相邻时间步角速度（斜率）变化超过此值则认为是突变

@@ -4,10 +4,11 @@ center_distance_mm: 15
 
 R_gimbal2imubody: [1, 0, 0, 0, 1, 0,  0, 0, 1]
 
-# IMU数据源选择: "can" 或 "dm_imu"
+# IMU数据源选择: "gimbal" "can" 或 "dm_imu"
 # can: 通过CAN总线(CBoard)读取IMU数据
 # dm_imu: 通过串口(DM_IMU)读取IMU数据
-imu_source: "dm_imu"
+imu_source: "gimbal"
+com_port: "/dev/ttyACM0"
 
 camera_name: "hikrobot"
 exposure_ms: 3
@@ -20,3 +21,7 @@ vid_pid: "2bdf:0001"
 # bullet_speed_canid: 0x110
 # send_canid: 0xff
 # can_interface: "can0"
+
+# 重投影误差: 0.0628px
+camera_matrix: [2407.3275522592235, 0, 682.70679160267559, 0, 2405.7278850403027, 544.79474139335832, 0, 0, 1]
+distort_coeffs: [-0.033095697354504967, 0.16474749733432545, -0.00075175349548928629, -0.0037952094925828746, 0]

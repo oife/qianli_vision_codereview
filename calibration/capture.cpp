@@ -30,7 +30,8 @@ void write_q(const std::string q_path, const Eigen::Quaterniond & q)
 }
 
 void capture_loop(
-  const std::string & config_path, const std::string & output_folder, const std::string & imu_source)
+  const std::string & config_path, const std::string & output_folder, const std::string & imu_source,
+  const cv::Size & pattern_size)
 {
   io::Camera camera(config_path);
   cv::Mat img;
@@ -79,8 +80,17 @@ void capture_loop(
     tools::draw_text(img_with_ypr, fmt::format("X {:.2f}", zyx[2]), {40, 120}, {0, 0, 255});
 
     std::vector<cv::Point2f> centers_2d;
-    auto success = cv::findCirclesGrid(img, cv::Size(10, 7), centers_2d);  // 默认是对称圆点图案
-    cv::drawChessboardCorners(img_with_ypr, cv::Size(10, 7), centers_2d, success);  // 显示识别结果
+    auto success = cv::findChessboardCorners(
+      img, pattern_size, centers_2d,
+      cv::CALIB_CB_ADAPTIVE_THRESH + cv::CALIB_CB_NORMALIZE_IMAGE);  // 棋盘格角点
+    if (success) {
+      cv::Mat gray;
+      cv::cvtColor(img, gray, cv::COLOR_BGR2GRAY);
+      cv::cornerSubPix(
+        gray, centers_2d, cv::Size(11, 11), cv::Size(-1, -1),
+        cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 30, 0.1));
+    }
+    cv::drawChessboardCorners(img_with_ypr, pattern_size, centers_2d, success);  // 显示识别结果
     cv::resize(img_with_ypr, img_with_ypr, {}, 0.5, 0.5);  // 显示时缩小图片尺寸
 
     // 按“s”保存图片和对应四元数，按“q”退出程序
@@ -114,8 +124,10 @@ int main(int argc, char * argv[])
   auto config_path = cli.get<std::string>(0);
   auto output_folder = cli.get<std::string>("output-folder");
 
-  // 从配置文件读取IMU数据源选择
+  // 从配置文件读取IMU数据源选择和标定板参数
   std::string imu_source = "can";  // 默认使用CAN
+  int pattern_cols = 10;
+  int pattern_rows = 7;
   try {
     auto yaml = YAML::LoadFile(config_path);
     if (yaml["imu_source"]) {
@@ -123,16 +135,28 @@ int main(int argc, char * argv[])
     } else {
       tools::logger()->info("[Capture] 配置文件中未指定imu_source，默认使用CAN");
     }
+
+    if (yaml["pattern_cols"] && yaml["pattern_rows"]) {
+      pattern_cols = yaml["pattern_cols"].as<int>();
+      pattern_rows = yaml["pattern_rows"].as<int>();
+    } else {
+      tools::logger()->info("[Capture] 配置文件中未指定pattern_cols/pattern_rows，默认使用10x7");
+    }
   } catch (const std::exception & e) {
-    tools::logger()->warn("[Capture] 读取配置文件失败: {}，使用默认值CAN", e.what());
+    tools::logger()->warn(
+      "[Capture] 读取配置文件失败: {}，imu_source使用默认CAN，标定板尺寸使用默认10x7", e.what());
   }
+
+  cv::Size pattern_size(pattern_cols, pattern_rows);
 
   // 新建输出文件夹
   std::filesystem::create_directory(output_folder);
 
-  tools::logger()->info("默认标定板尺寸为10列7行");
+  tools::logger()->info(
+    "[Capture] 标定板尺寸为{}列{}行", static_cast<int>(pattern_size.width),
+    static_cast<int>(pattern_size.height));
   // 主循环，保存图片和对应四元数
-  capture_loop(config_path, output_folder, imu_source);
+  capture_loop(config_path, output_folder, imu_source, pattern_size);
 
   tools::logger()->warn("注意四元数输出顺序为wxyz");
 

@@ -115,7 +115,7 @@ int main(int argc, char * argv[])
       yaw_switch_time = t;
       target_yaw = (target_yaw == 0) ? (CV_PI / 2) : 0;
     }
-    gimbal.send(true, test_fire && fire, target_yaw, 0, 0, 0, 0, 0);
+    gimbal.send(true, test_fire && fire, target_yaw, 0.2, 0, 0, 0, 0);
 
     nlohmann::json data;
     data["q_yaw"] = ypr[0];
