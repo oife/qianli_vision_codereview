@@ -135,15 +135,22 @@ std::list<Armor> YOLO26N::parse(
     float y2 = (cy + h / 2.f - pad_y_) / scale_;
 
     // 关键点（通道 15 开始）+ visibility
-    std::vector<cv::Point2f> kpts(NUM_KPTS);
-    std::vector<float> vis(NUM_KPTS);
+    // 模型输出顺序: kp0=左上, kp1=左下, kp2=右下, kp3=右上
+    std::vector<cv::Point2f> raw_kpts(NUM_KPTS);
+    std::vector<float> raw_vis(NUM_KPTS);
     int visible_count = 0;
     for (int k = 0; k < NUM_KPTS; k++) {
-      kpts[k].x = (data[(15 + k * 3 + 0) * num_anchors + i] - pad_x_) / scale_;
-      kpts[k].y = (data[(15 + k * 3 + 1) * num_anchors + i] - pad_y_) / scale_;
-      vis[k] = data[(15 + k * 3 + 2) * num_anchors + i];
-      if (vis[k] > 0.5f) visible_count++;
+      raw_kpts[k].x = (data[(15 + k * 3 + 0) * num_anchors + i] - pad_x_) / scale_;
+      raw_kpts[k].y = (data[(15 + k * 3 + 1) * num_anchors + i] - pad_y_) / scale_;
+      raw_vis[k] = data[(15 + k * 3 + 2) * num_anchors + i];
+      if (raw_vis[k] > 0.5f) visible_count++;
     }
+
+    // 重排关键点: 模型顺序 [左上(0), 左下(1), 右下(2), 右上(3)]
+    //          → solver 期望 [左上(0), 右上(3), 右下(2), 左下(1)]
+    // 与 yolov5.cpp 的重排逻辑保持一致
+    std::vector<cv::Point2f> kpts = {raw_kpts[0], raw_kpts[3], raw_kpts[2], raw_kpts[1]};
+    std::vector<float> vis = {raw_vis[0], raw_vis[3], raw_vis[2], raw_vis[1]};
 
     // 丢弃可见关键点 < 3 的检测
     if (visible_count < 3) continue;
