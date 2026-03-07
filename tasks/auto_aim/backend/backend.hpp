@@ -139,7 +139,7 @@ public:
    * @param pad_left 返回的左方填充
    * @return 预处理后的图像
    */
-  bool standarlize(const cv::Mat & img, cv::Mat target, double & scale);
+  bool standarlize(const cv::Mat & img, cv::Mat & target, double & scale);
 
   /**
    * @brief 完整执行预处理到推理的全流程

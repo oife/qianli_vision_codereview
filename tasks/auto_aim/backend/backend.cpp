@@ -55,7 +55,7 @@ bool Backend::infer(const cv::Mat & input, cv::Mat & output, BackendCtx * ctx)
   return backend_->infer(input, output, ctx);
 }
 
-bool Backend::standarlize(const cv::Mat & img, cv::Mat target, double & scale)
+bool Backend::standarlize(const cv::Mat & img, cv::Mat & target, double & scale)
 {
   return backend_->standarlize(img, target, scale);
 }
