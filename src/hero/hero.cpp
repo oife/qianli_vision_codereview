@@ -40,7 +40,7 @@ int main(int argc, char * argv[])
   // io::DM_IMU imu;
   
   // 初始化gimbal
-  // io::Gimbal gimbal(config_path);
+  io::Gimbal gimbal(config_path);
 
   // 初始化自瞄模块
   auto_aim::YOLO yolo(config_path);
@@ -66,9 +66,9 @@ int main(int argc, char * argv[])
     }
 
     // 读取gimbal数据
-    // gimbal_q = gimbal.q(t);  // 获取gimbal四元数（根据图像时间戳插值）
-    // gimbal_state = gimbal.state();  // 获取gimbal状态（yaw, pitch, bullet_speed等）
-    // gimbal_mode = gimbal.mode();  // 获取gimbal模式
+    gimbal_q = gimbal.q(t);  // 获取gimbal四元数（根据图像时间戳插值）
+    gimbal_state = gimbal.state();  // 获取gimbal状态（yaw, pitch, bullet_speed等）
+    gimbal_mode = gimbal.mode();  // 获取gimbal模式
 
     /// 自瞄核心逻辑
 
@@ -95,10 +95,12 @@ int main(int argc, char * argv[])
 
     if (command.control) last_command = command;
 
+    command.shoot = false;
+
 
     // 发送控制命令到云台（角速度和角加速度设为0）
-    // gimbal.send(
-    //   command.control, command.shoot, command.yaw, 0.0f, 0.0f, command.pitch, 0.0f, 0.0f);
+    gimbal.send(
+      command.control, command.shoot, command.yaw, 0.0f, 0.0f, command.pitch, 0.0f, 0.0f);
 
     /// 调试输出
 
