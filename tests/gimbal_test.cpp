@@ -120,6 +120,7 @@ int main(int argc, char * argv[])
     nlohmann::json data;
     data["q_yaw"] = ypr[0];
     data["q_pitch"] = ypr[1];
+    data["q_roll"] = ypr[2];
     data["yaw"] = state.yaw;
     data["vyaw"] = state.yaw_vel;
     data["pitch"] = state.pitch;

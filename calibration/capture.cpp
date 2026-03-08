@@ -79,13 +79,23 @@ void capture_loop(
     tools::draw_text(img_with_ypr, fmt::format("Y {:.2f}", zyx[1]), {40, 80}, {0, 0, 255});
     tools::draw_text(img_with_ypr, fmt::format("X {:.2f}", zyx[2]), {40, 120}, {0, 0, 255});
 
+    // 使用缩小分辨率的灰度图进行棋盘格检测，加速“未识别到棋盘格”时的处理
+    const double scale = 0.5;
+    cv::Mat gray, gray_small;
+    cv::cvtColor(img, gray, cv::COLOR_BGR2GRAY);
+    cv::resize(gray, gray_small, {}, scale, scale);
+
     std::vector<cv::Point2f> centers_2d;
+    std::vector<cv::Point2f> centers_2d_small;
     auto success = cv::findChessboardCorners(
-      img, pattern_size, centers_2d,
-      cv::CALIB_CB_ADAPTIVE_THRESH + cv::CALIB_CB_NORMALIZE_IMAGE);  // 棋盘格角点
+      gray_small, pattern_size, centers_2d_small,
+      cv::CALIB_CB_ADAPTIVE_THRESH + cv::CALIB_CB_NORMALIZE_IMAGE +
+        cv::CALIB_CB_FAST_CHECK);  // 棋盘格角点
     if (success) {
-      cv::Mat gray;
-      cv::cvtColor(img, gray, cv::COLOR_BGR2GRAY);
+      centers_2d.reserve(centers_2d_small.size());
+      for (const auto & p : centers_2d_small) {
+        centers_2d.emplace_back(p.x / scale, p.y / scale);
+      }
       cv::cornerSubPix(
         gray, centers_2d, cv::Size(11, 11), cv::Size(-1, -1),
         cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 30, 0.1));

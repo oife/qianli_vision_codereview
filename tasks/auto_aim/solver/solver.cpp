@@ -110,6 +110,10 @@ void Solver::solve(Armor & armor) const
   // 相机系 -> 云台系 -> 世界系
   armor.xyz_in_gimbal = R_camera2gimbal_ * xyz_in_camera + t_camera2gimbal_;
   armor.xyz_in_world = R_gimbal2world_ * armor.xyz_in_gimbal;
+  
+  fmt::print(
+    "[PnP] armor xyz_in_world = [{:.3f}, {:.3f}, {:.3f}] m\n", armor.xyz_in_world[0],
+    armor.xyz_in_world[1], armor.xyz_in_world[2]);
 
   cv::Mat rmat;
   cv::Rodrigues(rvec, rmat);
@@ -216,6 +220,9 @@ double Solver::oupost_reprojection_error(Armor armor, const double & pitch)
   cv::cv2eigen(tvec, xyz_in_camera);
   armor.xyz_in_gimbal = R_camera2gimbal_ * xyz_in_camera + t_camera2gimbal_;
   armor.xyz_in_world = R_gimbal2world_ * armor.xyz_in_gimbal;
+  fmt::print(
+    "[PnP] armor xyz_in_world = [{:.3f}, {:.3f}, {:.3f}] m\n", armor.xyz_in_world[0],
+    armor.xyz_in_world[1], armor.xyz_in_world[2]);
 
   cv::Mat rmat;
   cv::Rodrigues(rvec, rmat);

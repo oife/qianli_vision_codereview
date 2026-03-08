@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file minimum_vision_system.cpp
  * @brief 最小视觉系统测试 - 完整的自瞄系统集成测试
  * 
@@ -16,7 +16,7 @@
 #include <thread>
 
 #include "io/camera/camera.hpp"
-#include "io/dm_imu/dm_imu.hpp"
+#include "io/gimbal/gimbal.hpp"
 #include "tasks/auto_aim/aimer/aimer.hpp"
 #include "tasks/auto_aim/multithread/mt_detector.hpp"
 #include "tasks/auto_aim/shooter/shooter.hpp"
@@ -46,10 +46,10 @@ int main(int argc, char * argv[])
   auto config_path = cli.get<std::string>("@config-path");
 
   // 初始化各个模块
-  tools::Exiter exiter;              // 退出控制器
-  tools::Plotter plotter;            // 数据可视化工具
-  io::Camera camera(config_path);    // 相机模块，用于图像采集
-  io::DM_IMU dm_imu;                 // IMU模块，用于获取姿态数据
+  tools::Exiter exiter;               // 退出控制器
+  tools::Plotter plotter;             // 数据可视化工具
+  io::Camera camera(config_path);     // 相机模块，用于图像采集
+  io::Gimbal gimbal(config_path);     // 云台模块，提供姿态四元数作为IMU输入
 
   // 初始化自瞄系统各组件
   auto_aim::multithread::MultiThreadDetector detector(config_path);  // 多线程目标检测器
@@ -79,8 +79,8 @@ int main(int argc, char * argv[])
     // 从检测器获取检测结果（图像、装甲板列表、时间戳）
     auto [img, armors, t] = detector.debug_pop();
 
-    // 获取IMU数据：根据时间戳获取对应的姿态四元数
-    Eigen::Quaterniond q = dm_imu.imu_at(t);
+    // 获取云台姿态：根据时间戳获取对应的姿态四元数
+    Eigen::Quaterniond q = gimbal.q(t);
 
     //2.
     // 设置云台到世界坐标系的旋转矩阵
