@@ -11,6 +11,7 @@
 #include "tasks/auto_aim/armor/armor.hpp"
 #include "tasks/auto_aim/backend/backend.hpp"
 #include "tasks/auto_aim/detector/detector.hpp"
+#include "tasks/auto_aim/parser/parser.hpp"
 #include "tasks/auto_aim/yolos/yolo.hpp"
 
 namespace auto_aim
@@ -64,14 +65,14 @@ private:
    * @param armor 待检查的装甲板对象
    * @return 是否为有效装甲板且置信度满足要求
    */
-  bool check_name(const Armor & armor) const;
+  static bool check_name(const Armor & armor) const;
 
   /**
    * @brief 检查装甲板的类型与名称是否匹配
    * @param armor 待检查的装甲板对象
    * @return 类型与名称是否匹配（小装甲板不能是1号或基地，大装甲板不能是2号、哨兵或前哨站）
    */
-  bool check_type(const Armor & armor) const;
+  static bool check_type(const Armor & armor) const;
 
   /**
    * @brief 将像素坐标归一化到[0,1]范围
@@ -79,7 +80,7 @@ private:
    * @param center 像素坐标中心点
    * @return 归一化后的坐标点（x/w, y/h）
    */
-  cv::Point2f get_center_norm(const cv::Mat & bgr_img, const cv::Point2f & center) const;
+  static cv::Point2f get_center_norm(const cv::Mat & bgr_img, const cv::Point2f & center) const;
 
   /**
    * @brief 解析YOLO模型输出，提取装甲板信息
@@ -129,6 +130,7 @@ private:
 
   YAML::Node yaml_;
 };
+
 }  // namespace auto_aim
 
 #endif
