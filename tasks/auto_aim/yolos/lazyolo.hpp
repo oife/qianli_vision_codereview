@@ -57,7 +57,7 @@ protected:
 
   virtual std::string model_path_key() const = 0;
 
-  YAML::Node & get_yaml();
+  const YAML::Node & get_yaml() const;
 
 private:
   /**

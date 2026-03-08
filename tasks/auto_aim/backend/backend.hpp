@@ -1,6 +1,8 @@
 #ifndef AUTO_AIM__BACKEND_HPP
 #define AUTO_AIM__BACKEND_HPP
 
+#include <yaml-cpp/yaml.h>
+
 #include <memory>
 #include <opencv2/opencv.hpp>
 #include <vector>
@@ -94,6 +96,7 @@ public:
 protected:
   BackendConfig model_config_;
   std::string config_path_;
+  YAML::Node yaml_;
 };
 
 /**

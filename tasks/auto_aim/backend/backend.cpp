@@ -7,15 +7,16 @@
 #include "tensorrt_backend.hpp"
 #endif
 
-#include <yaml-cpp/yaml.h>
-
 #include <memory>
 
 #include "tools/logger/logger.hpp"
 
 namespace auto_aim
 {
-BackendBase::BackendBase(const std::string & config_path) : config_path_(config_path) {}
+BackendBase::BackendBase(const std::string & config_path) : config_path_(config_path)
+{
+  yaml_ = YAML::LoadFile(config_path);
+}
 
 bool BackendBase::standarlize(const cv::Mat & img, cv::Mat & target, double & scale)
 {
