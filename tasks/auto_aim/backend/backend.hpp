@@ -80,10 +80,6 @@ public:
   bool execute(const cv::Mat & img, cv::Mat & target, double & scale, BackendCtx * ctx);
 
   /**
-   * @brief 获取
-   */
-
-  /**
    * @brief 获取模型配置
    */
   const BackendConfig & get_model_config() const { return model_config_; }

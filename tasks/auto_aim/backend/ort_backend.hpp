@@ -22,7 +22,9 @@ public:
   std::string get_name() const override;
 
 private:
-  std::shared_ptr<Ort::Env> env_;
+  void preprocess(const cv::Mat & src, cv::Mat & dist);
+
+  Ort::Env env_;
   Ort::Session session_{nullptr};
   std::vector<const char *> input_names_;
   std::vector<const char *> output_names_;
@@ -32,6 +34,7 @@ private:
 class ORTCtx : public BackendCtx
 {
 private:
+  std::vector<Ort::Value> output_tensors_;
   friend class ORTBackend;
 };
 }  // namespace auto_aim
