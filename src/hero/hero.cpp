@@ -95,14 +95,11 @@ int main(int argc, char * argv[])
 
     if (command.control) last_command = command;
 
-    command.shoot = false;
-
-
     // 发送控制命令到云台（角速度和角加速度设为0）
     gimbal.send(
       command.control, command.shoot, command.yaw, 0.0f, 0.0f, command.pitch, 0.0f, 0.0f);
 
-    /// 调试输出
+    // 调试输出
 
     // 打印command到日志
     tools::logger()->info(

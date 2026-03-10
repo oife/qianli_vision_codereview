@@ -219,8 +219,8 @@ Eigen::Matrix<double, 2, 1> Planner::aim(const Target & target, double bullet_sp
 
   // 返回瞄准角度：[yaw, pitch]
   // yaw: 方位角 + yaw偏移量（限制在[-π, π]）
-  // pitch: 弹道俯仰角（取负号，因为pitch向下为正）+ pitch偏移量
-  return {tools::limit_rad(azim + yaw_offset_), -bullet_traj.pitch - pitch_offset_};
+  // pitch: 弹道俯仰角（抬头为正）+ pitch偏移量
+  return {tools::limit_rad(azim + yaw_offset_), bullet_traj.pitch + pitch_offset_};
 }
 
 Trajectory Planner::get_trajectory(Target & target, double yaw0, double bullet_speed)

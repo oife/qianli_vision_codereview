@@ -118,7 +118,7 @@ io::Command Aimer::aim(
   // 计算最终角度
   Eigen::Vector3d final_xyz = debug_aim_point.xyza.head(3);
   double yaw = std::atan2(final_xyz.y(), final_xyz.x()) + yaw_offset_;
-  double pitch = -(current_traj.pitch + pitch_offset_);  //世界坐标系下pitch向上为负
+  double pitch = current_traj.pitch + pitch_offset_;  // 世界坐标系下 pitch 向上为正
   return {true, false, yaw, pitch};
 }
 

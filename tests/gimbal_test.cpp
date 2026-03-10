@@ -71,10 +71,15 @@ int main(int argc, char * argv[])
   auto fire_stamp = std::chrono::steady_clock::now();
   auto first_fired = false;
 
-  // yaw 在 0° 与 90° 之间循环切换
-  constexpr double YAW_CYCLE_INTERVAL = 3.0;  // 每个目标停留 3 秒
+  // yaw 在 +90° 与 -90° 之间循环切换
+  constexpr double YAW_CYCLE_INTERVAL = 3.0;    // 每个目标停留 3 秒
   auto yaw_switch_time = std::chrono::steady_clock::now();
-  double target_yaw = 0;  // 0 弧度
+  double target_yaw = 0.6;                // 初始为 +90° 弧度
+
+  // pitch 在 +0.5 与 -0.5 rad 之间循环切换
+  constexpr double PITCH_CYCLE_INTERVAL = 2.0;  // 每个目标停留 2 秒
+  auto pitch_switch_time = std::chrono::steady_clock::now();
+  double target_pitch = 0.2;
 
   while (!exiter.exit()) {
     auto mode = gimbal.mode();
@@ -110,13 +115,19 @@ int main(int argc, char * argv[])
     }
     fire_count++;
 
-    // 每隔 YAW_CYCLE_INTERVAL 秒切换 yaw 目标：0° <-> 90°
+    // 每隔 YAW_CYCLE_INTERVAL 秒切换 yaw 目标：+90° <-> -90°
     if (tools::delta_time(t, yaw_switch_time) >= YAW_CYCLE_INTERVAL) {
       yaw_switch_time = t;
-      target_yaw = (target_yaw == 0) ? (CV_PI / 2) : 0;
+      target_yaw = -target_yaw;
     }
-    gimbal.send(true, test_fire && fire, target_yaw, 0.2, 0, 0, 0, 0);
 
+    // 每隔 PITCH_CYCLE_INTERVAL 秒在 +0.5 与 -0.5 rad 之间切换 pitch 目标
+    if (tools::delta_time(t, pitch_switch_time) >= PITCH_CYCLE_INTERVAL) {
+      pitch_switch_time = t;
+      target_pitch = -target_pitch;
+    }
+
+    gimbal.send(true, test_fire && fire, 0, 0, 0, target_pitch, 0, 0);
     nlohmann::json data;
     data["q_yaw"] = ypr[0];
     data["q_pitch"] = ypr[1];

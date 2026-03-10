@@ -37,7 +37,7 @@ io::Command Aimer::aim(
     std::abs(last_yaw_ - yaw) > 5 / 57.3 || std::abs(last_pitch_ - pitch) > 5 / 57.3;
   if (get_send_angle(target, future, bullet_speed, to_now, yaw, pitch)) {
     command.yaw = yaw;
-    command.pitch = -pitch;  //世界坐标系下的pitch向上为负
+    command.pitch = pitch;  // 世界坐标系下 pitch 向上为正
     if (mistake_count_ > 3) {
       switch_fanblade_ = true;
       mistake_count_ = 0;
@@ -90,7 +90,7 @@ auto_aim::Plan Aimer::mpc_aim(
     std::abs(last_yaw_ - yaw) > 5 / 57.3 || std::abs(last_pitch_ - pitch) > 5 / 57.3;
   if (get_send_angle(target, future, bullet_speed, to_now, yaw, pitch)) {
     plan.yaw = yaw;
-    plan.pitch = -pitch;  //世界坐标系下的pitch向上为负
+    plan.pitch = pitch;  // 世界坐标系下 pitch 向上为正
     if (mistake_count_ > 3) {
       switch_fanblade_ = true;
       mistake_count_ = 0;
@@ -128,9 +128,9 @@ auto_aim::Plan Aimer::mpc_aim(
                        std::pow(dt, 2);
         // plan.yaw_acc = tools::limit_min_max(plan.yaw_acc, -50, 50);
 
-        plan.pitch_vel = tools::limit_rad(-pitch + last_pitch_mpc) / (2 * dt);
+        plan.pitch_vel = tools::limit_rad(pitch - last_pitch_mpc) / (2 * dt);
         // plan.pitch_vel = tools::limit_min_max(plan.pitch_vel, -6.28, 6.28);
-        plan.pitch_acc = (-pitch - gs.pitch - (gs.pitch + last_pitch_mpc)) / std::pow(dt, 2);
+        plan.pitch_acc = (pitch - gs.pitch - (gs.pitch - last_pitch_mpc)) / std::pow(dt, 2);
         // plan.pitch_acc = tools::limit_min_max(plan.pitch_acc, -100, 100);
       }
     }
