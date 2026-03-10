@@ -8,7 +8,6 @@
 #include <filesystem>
 #include <random>
 
-// #include "tasks/auto_aim/classifier/classifier.hpp"
 #include "tools/img_tools/img_tools.hpp"
 #include "tools/logger/logger.hpp"
 
@@ -48,12 +47,6 @@ YOLOV8::YOLOV8(const std::string & config_path, bool debug)
   }
 }
 
-/**
- * @brief 从图像中检测所有装甲板
- * @param raw_img 输入的BGR彩色图像
- * @param frame_count 帧计数，用于调试显示
- * @return 检测到的装甲板列表
- */
 std::list<Armor> YOLOV8::detect(const cv::Mat & raw_img, int frame_count)
 {
   if (raw_img.empty()) {

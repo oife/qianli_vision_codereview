@@ -22,10 +22,29 @@ namespace auto_aim
 class YOLO26N : public YOLOBase
 {
 public:
+  /**
+   * @brief 构造函数，初始化YOLO26N检测器
+   * @param config_path 配置文件路径
+   * @param debug 是否开启调试模式
+   */
   YOLO26N(const std::string & config_path, bool debug);
 
+  /**
+   * @brief 从图像中检测所有装甲板
+   * @param bgr_img 输入的BGR彩色图像
+   * @param frame_count 帧计数，用于调试显示
+   * @return 检测到的装甲板列表
+   */
   std::list<Armor> detect(const cv::Mat & bgr_img, int frame_count) override;
 
+  /**
+   * @brief 后处理YOLO模型输出，解析检测结果
+   * @param scale 图像缩放比例
+   * @param output YOLO模型输出的特征图
+   * @param bgr_img 原始BGR彩色图像
+   * @param frame_count 帧计数，用于调试显示
+   * @return 解析后的装甲板列表
+   */
   std::list<Armor> postprocess(
     double scale, cv::Mat & output, const cv::Mat & bgr_img, int frame_count) override;
 

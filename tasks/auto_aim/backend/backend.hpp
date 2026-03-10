@@ -1,6 +1,8 @@
 #ifndef AUTO_AIM__BACKEND_HPP
 #define AUTO_AIM__BACKEND_HPP
 
+#include <yaml-cpp/yaml.h>
+
 #include <memory>
 #include <opencv2/opencv.hpp>
 #include <vector>
@@ -8,12 +10,14 @@
 // TODO: Just for debug, remember to remove it.
 // #define TENSORRT_AVAILABLE
 #define OPENVINO_AVAILABLE
+#define ORT_AVAILABLE
 
 namespace auto_aim
 {
 struct BackendConfig
 {
   cv::Size input_size{640, 640};
+  int input_type{CV_8UC3};
   cv::Scalar padding_color{0, 0, 0};
   bool preprocess{true};
 };
@@ -89,6 +93,7 @@ public:
 protected:
   BackendConfig model_config_;
   std::string config_path_;
+  YAML::Node yaml_;
 };
 
 /**
@@ -134,7 +139,7 @@ public:
    * @param pad_left 返回的左方填充
    * @return 预处理后的图像
    */
-  bool standarlize(const cv::Mat & img, cv::Mat target, double & scale);
+  bool standarlize(const cv::Mat & img, cv::Mat & target, double & scale);
 
   /**
    * @brief 完整执行预处理到推理的全流程

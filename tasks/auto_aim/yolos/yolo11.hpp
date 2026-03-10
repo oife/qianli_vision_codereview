@@ -16,7 +16,7 @@ namespace auto_aim
 /**
  * @brief YOLO11检测器实现类
  * 
- * 基于OpenVINO实现的YOLO11目标检测器，用于检测图像中的装甲板
+ * YOLO11目标检测器，用于检测图像中的装甲板
  * 支持ROI区域裁剪等功能
  */
 class YOLO11 : public YOLOBase

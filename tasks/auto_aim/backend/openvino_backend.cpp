@@ -10,8 +10,7 @@ namespace auto_aim
 {
 OpenVINOBackend::OpenVINOBackend(const std::string & config_path) : BackendBase(config_path)
 {
-  auto yaml = YAML::LoadFile(config_path);
-  device_ = yaml["device"].as<std::string>("CPU");
+  device_ = yaml_["device"].as<std::string>("CPU");
 }
 
 bool OpenVINOBackend::init(const std::string & model_path, const BackendConfig & model_config)
