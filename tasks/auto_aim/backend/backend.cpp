@@ -7,6 +7,10 @@
 #include "tensorrt_backend.hpp"
 #endif
 
+#ifdef ORT_AVAILABLE
+#include "ort_backend.hpp"
+#endif
+
 #include <memory>
 
 #include "tools/logger/logger.hpp"
@@ -83,6 +87,12 @@ void Backend::backend_allocate(const std::string config_path)
 #ifdef TENSORRT_AVAILABLE
   if (backend_type == "tensorrt") {
     backend_ = std::make_unique<TensorRTBackend>(config_path);
+    return;
+  }
+#endif
+#ifdef ORT_AVAILABLE
+  if (backend_type == "onnxruntime" || backend_type == "ort") {
+    backend_ = std::make_unique<ORTBackend>(config_path);
     return;
   }
 #endif

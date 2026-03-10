@@ -14,7 +14,6 @@ class ORTBackend : public BackendBase
 {
 public:
   explicit ORTBackend(const std::string & config_path);
-  ~ORTBackend() override;
 
   bool init(const std::string & model_path, const BackendConfig & model_config) override;
   bool infer(const cv ::Mat & input, cv::Mat & output, BackendCtx * ctx) override;
