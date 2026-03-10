@@ -19,12 +19,17 @@ bool ORTBackend::init(const std::string & model_path, const BackendConfig & mode
   try {
     model_config_ = model_config;
 
+    env_ = Ort::Env(ORT_LOGGING_LEVEL_WARNING, "ort_backend");
+
     Ort::SessionOptions session_options;
     session_ = Ort::Session(env_, model_path.c_str(), session_options);
 
     Ort::AllocatorWithDefaultOptions allocator;
-    input_names_ = {session_.GetInputNameAllocated(0, allocator).get()};
-    output_names_ = {session_.GetOutputNameAllocated(0, allocator).get()};
+    Ort::AllocatedStringPtr input_name_ptr = session_.GetInputNameAllocated(0, allocator);
+    Ort::AllocatedStringPtr output_name_ptr = session_.GetInputNameAllocated(0, allocator);
+
+    input_name_ = input_name_ptr.get();
+    output_name_ = output_name_ptr.get();
 
     return true;
   } catch (const std::exception & e) {
@@ -43,15 +48,15 @@ bool ORTBackend::infer(const cv::Mat & input, cv::Mat & output, BackendCtx * ctx
     preprocess(input, processed_input);
 
     std::vector<int64_t> input_shape = {
-      1, model_config_.input_size.height, model_config_.input_size.width, 3};
+      1, 3, model_config_.input_size.height, model_config_.input_size.width};
 
     auto memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
-    auto input_tensor = Ort::Value::CreateTensor<uint8_t>(
-      memory_info, const_cast<uint8_t *>(processed_input.data),
-      processed_input.total() * processed_input.elemSize(), input_shape.data(), input_shape.size());
+    auto input_tensor = Ort::Value::CreateTensor<float>(
+      memory_info, processed_input.ptr<float>(),
+      processed_input.total() * processed_input.channels(), input_shape.data(), input_shape.size());
 
-    ort_ctx->output_tensors_ = session_.Run(
-      Ort::RunOptions{nullptr}, input_names_.data(), &input_tensor, 1, output_names_.data(), 1);
+    ort_ctx->output_tensors_ =
+      session_.Run(Ort::RunOptions{nullptr}, &input_name_, &input_tensor, 1, &output_name_, 1);
 
     float * output_data = ort_ctx->output_tensors_[0].GetTensorMutableData<float>();
     auto output_shape = ort_ctx->output_tensors_[0].GetTensorTypeAndShapeInfo().GetShape();
@@ -66,9 +71,8 @@ bool ORTBackend::infer(const cv::Mat & input, cv::Mat & output, BackendCtx * ctx
 
 void ORTBackend::preprocess(const cv::Mat & src, cv::Mat & dist)
 {
-  cv::cvtColor(src, dist, cv::COLOR_BGR2RGB);
-  dist.convertTo(dist, CV_32F);
-  dist /= 255.0;
+  dist =
+    cv::dnn::blobFromImage(src, 1 / 255.0, model_config_.input_size, cv::Scalar(), true, false);
 }
 
 std::unique_ptr<BackendCtx> ORTBackend::create_ctx()
