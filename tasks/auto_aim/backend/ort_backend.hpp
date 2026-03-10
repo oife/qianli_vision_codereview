@@ -25,8 +25,8 @@ private:
 
   Ort::Env env_;
   Ort::Session session_{nullptr};
-  const char * input_name_;
-  const char * output_name_;
+  std::string input_name_;
+  std::string output_name_;
   std::string device_;
 };
 

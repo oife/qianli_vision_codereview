@@ -26,7 +26,7 @@ bool ORTBackend::init(const std::string & model_path, const BackendConfig & mode
 
     Ort::AllocatorWithDefaultOptions allocator;
     Ort::AllocatedStringPtr input_name_ptr = session_.GetInputNameAllocated(0, allocator);
-    Ort::AllocatedStringPtr output_name_ptr = session_.GetInputNameAllocated(0, allocator);
+    Ort::AllocatedStringPtr output_name_ptr = session_.GetOutputNameAllocated(0, allocator);
 
     input_name_ = input_name_ptr.get();
     output_name_ = output_name_ptr.get();
@@ -55,8 +55,11 @@ bool ORTBackend::infer(const cv::Mat & input, cv::Mat & output, BackendCtx * ctx
       memory_info, processed_input.ptr<float>(),
       processed_input.total() * processed_input.channels(), input_shape.data(), input_shape.size());
 
+    const char * input_name_c = input_name_.c_str();
+    const char * output_name_c = output_name_.c_str();
+
     ort_ctx->output_tensors_ =
-      session_.Run(Ort::RunOptions{nullptr}, &input_name_, &input_tensor, 1, &output_name_, 1);
+      session_.Run(Ort::RunOptions{nullptr}, &input_name_c, &input_tensor, 1, &output_name_c, 1);
 
     float * output_data = ort_ctx->output_tensors_[0].GetTensorMutableData<float>();
     auto output_shape = ort_ctx->output_tensors_[0].GetTensorTypeAndShapeInfo().GetShape();
