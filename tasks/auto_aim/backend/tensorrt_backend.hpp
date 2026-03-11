@@ -24,7 +24,9 @@ public:
   std::string get_name() const override;
 
 private:
-  void onnxToEngine(const char * onnx_file, int memory_size);
+  void onnx_convert(const char * onnx_file, int memory_size);
+
+  std::shared_ptr<nvinfer1::IExecutionContext> create_ex_context(std::string model_path);
 
   nvinfer1::ICudaEngine * engine = nullptr;
   nvinfer1::IExecutionContext * context_ = nullptr;
