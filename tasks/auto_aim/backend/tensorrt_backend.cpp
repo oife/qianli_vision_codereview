@@ -8,6 +8,28 @@ namespace auto_aim
 {
 TensorRTBackend::TensorRTBackend(const std::string & config_path) : BackendBase(config_path) {}
 
+bool TensorRTBackend::init(const std::string & model_path, const BackendConfig & model_config)
+{
+  std::string ex_model_path = model_path;
+   size_t dotPos = model_path.find_last_of(".");
+   std::string model_path_raw = model_path.substr(0, dotPos);
+   std::string ext = model_path.substr(dotPos + 1);
+  if (ext != "engine") {
+    if (ext == "onnx") {
+      onnx_convert(model_path.c_str(), 4);
+      ex_model_path = model_path_raw + ".engine";
+    }
+    else return false;
+  }
+
+  ex_context_ = create_ex_context(ex_model_path);
+
+  cudaStreamCreate(&stream_);
+  size_t input_size = model_config_.input_channels * model_config_.input_size.height *
+                      model_config_.input_size.width * sizeof(float);
+  cudaMalloc(&input_src_device_, input_size);
+}
+
 void TensorRTBackend::onnx_convert(const char * onnx_file, int memory_size)
 {
   std::string path(onnx_file);

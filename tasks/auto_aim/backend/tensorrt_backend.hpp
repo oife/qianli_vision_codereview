@@ -29,13 +29,11 @@ private:
   std::shared_ptr<nvinfer1::IExecutionContext> create_ex_context(std::string model_path);
 
   nvinfer1::ICudaEngine * engine = nullptr;
-  nvinfer1::IExecutionContext * context_ = nullptr;
-  cv::Size input_size_{416, 416};
+  std::shared_ptr<nvinfer1::IExecutionContext> ex_context_ = nullptr;
 
-  void * device_buffers_[2];
-  int input_index_;
-  int output_index_;
   cudaStream_t stream_;
+  void * input_src_device_;
+  void * output_src_device_;
 
   class Logger : public nvinfer1::ILogger
   {

@@ -17,7 +17,7 @@ namespace auto_aim
 struct BackendConfig
 {
   cv::Size input_size{640, 640};
-  int input_type{CV_8UC3};
+  int input_channels{3};
   cv::Scalar padding_color{0, 0, 0};
   bool preprocess{true};
 };
