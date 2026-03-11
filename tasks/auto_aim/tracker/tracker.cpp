@@ -60,8 +60,11 @@ std::list<Target> Tracker::track(
     state_ = "lost";
   }
 
-  // 过滤：仅保留敌方颜色的装甲板（根据配置的 enemy_color_）
-  armors.remove_if([&](const auto_aim::Armor & a) { return a.color != enemy_color_; });
+  // 过滤：保留敌方颜色 + 被击中变灰（extinguish）的装甲板
+  // extinguish 是目标被击中后灯条熄灭的状态，仍然是同一辆车，不能丢弃
+  armors.remove_if([&](const auto_aim::Armor & a) {
+    return a.color != enemy_color_ && a.color != Color::extinguish;
+  });
 
   // 通过重投影误差判断前哨站装甲板是否为顶部装甲板，过滤掉顶部装甲板
   // armors.remove_if([this](const auto_aim::Armor & a) {
@@ -367,7 +370,13 @@ bool Tracker::update_target(std::list<Armor> & armors, std::chrono::steady_clock
 
   if (found_count == 0) return false;
 
-  // ---- 第三步：完整装甲板 PnP + EKF update ----
+  // ---- 第三步：完整装甲板 PnP + EKF update，保存解算结果用于桥接 ----
+  struct SolvedFull {
+    const Armor * ptr;
+    int matched_id;
+  };
+  std::vector<SolvedFull> solved_full;
+
   for (auto & armor : armors) {
     if (armor.partial) continue;
     bool strict_match = (armor.name == target_.name && armor.type == target_.armor_type);
@@ -375,25 +384,60 @@ bool Tracker::update_target(std::list<Armor> & armors, std::chrono::steady_clock
     if (!strict_match && !extended_match) continue;
 
     solver_.solve(armor);
+
+    // PnP 结果合理性检查：solver_.solve() 可能因异常或不足点提前返回
+    double solve_dist = armor.ypd_in_world.norm();
+    if (solve_dist < 0.3 || solve_dist > 15.0 || std::isnan(solve_dist)) {
+      tools::logger()->debug("[Tracker] PnP result rejected: dist={:.2f}", solve_dist);
+      continue;
+    }
+
+    // 3D 位置跳变检测：车不可能在几帧内瞬移几米
+    // 将 PnP 位置与 EKF 预测的所有装甲板位置做 3D 距离对比
+    auto xyza_list = target_.armor_xyza_list();
+    double min_3d_dist = 1e10;
+    for (const auto & xyza : xyza_list) {
+      double d = (armor.xyz_in_world - xyza.head(3)).norm();
+      min_3d_dist = std::min(min_3d_dist, d);
+    }
+    if (min_3d_dist > 2.0) {
+      tools::logger()->debug(
+        "[Tracker] PnP 3D jump rejected: {:.2f}m from nearest prediction", min_3d_dist);
+      continue;
+    }
+
     target_.update(armor);
+    solved_full.push_back({&armor, target_.last_id});
   }
 
-  // ---- 第四步：partial（2kpt）装甲板像素空间 EKF update ----
+  // ---- 第四步：partial（2kpt）装甲板桥接 EKF update ----
   for (const auto & armor : armors) {
     if (!armor.partial) continue;
 
-    // 方式 A：名称匹配（原逻辑）
+    // 判断是否属于同一辆车
     bool name_match = (armor.name == target_.name);
-
-    // 方式 B：not_armor 的 2kpt，用几何约束判断是否同一辆车
     bool geom_match = false;
     if (!name_match && armor.name == ArmorName::not_armor && ref_armor_ptr != nullptr) {
       geom_match = is_same_vehicle_partial(armor, *ref_armor_ptr);
     }
+    if (!name_match && !geom_match) continue;
 
-    if (name_match || geom_match) {
-      target_.update_pixel(armor, solver_);
+    // 找最近的已解算完整装甲板作为 PnP 锚点
+    const SolvedFull * best_anchor = nullptr;
+    double min_dist = 1e10;
+    for (const auto & sf : solved_full) {
+      double d = cv::norm(armor.center - sf.ptr->center);
+      if (d < min_dist) {
+        min_dist = d;
+        best_anchor = &sf;
+      }
     }
+
+    if (best_anchor && min_dist < 400.0) {
+      // 桥接更新：以邻接关系确定 ID，联合约束旋转中心和 r/l/h
+      target_.update_bridge(*best_anchor->ptr, armor, best_anchor->matched_id, solver_);
+    }
+    // 无相邻完整装甲板时直接跳过：2kpt 数据无法独立解算，只会增加噪声
   }
 
   return true;
@@ -430,7 +474,7 @@ bool Tracker::is_same_vehicle_full(const Armor & armor) const
     min_reproj_dist = std::min(min_reproj_dist, d);
   }
 
-  // 阈值：允许最近重投影中心偏差不超过 300px（等价约束）
+  // 像素距离阈值（辅助约束，主要防护靠 3D 跳变检测）
   return min_reproj_dist < 300.0;
 }
 

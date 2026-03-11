@@ -102,8 +102,14 @@ void Solver::solve(Armor & armor) const
   cv::Vec3d rvec, tvec;
   // 4 点用 IPPE（共面专用），3 点用 SQPNP
   int method = (visible_count == 4) ? cv::SOLVEPNP_IPPE : cv::SOLVEPNP_SQPNP;
-  cv::solvePnP(object_points, image_points, camera_matrix_, distort_coeffs_, rvec, tvec, false,
-    method);
+  try {
+    cv::solvePnP(object_points, image_points, camera_matrix_, distort_coeffs_, rvec, tvec, false,
+      method);
+  } catch (const cv::Exception & e) {
+    // SQPNP 在 3 点近乎共线时会抛 POINT_VARIANCE_THRESHOLD 异常，安全跳过
+    tools::logger()->debug("[Solver] solvePnP failed: {}", e.what());
+    return;
+  }
 
   Eigen::Vector3d xyz_in_camera;
   cv::cv2eigen(tvec, xyz_in_camera);

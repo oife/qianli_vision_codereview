@@ -87,6 +87,17 @@ public:
   void update_pixel(const Armor & armor, const Solver & solver);
 
   /**
+   * @brief 桥接更新：以 PnP 解算的完整装甲板为锚点，用相邻 2kpt 装甲板约束 r/l/h
+   * @param full_armor 已 PnP 解算的完整装甲板（锚点）
+   * @param partial_armor 2kpt 部分装甲板观测
+   * @param full_id 完整装甲板在 EKF 中匹配的 id
+   * @param solver 解算器（用于投影计算）
+   */
+  void update_bridge(
+    const Armor & full_armor, const Armor & partial_armor, int full_id,
+    const Solver & solver);
+
+  /**
    * @brief 获取扩展卡尔曼滤波器的状态向量
    * @return 当前状态向量
    */

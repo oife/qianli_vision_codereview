@@ -106,7 +106,7 @@ void Target::predict(double dt)
   auto b = dt * dt * dt / 2;
   auto c = dt * dt;
   // 几何参数过程噪声（r, l, h 也需要允许缓慢变化）
-  double v3 = 1e-4;  // 几何参数方差（远小于位置/角度，以缓慢适应为主）
+  double v3 = 0.05;  // 几何参数方差
 
   // 预测过程噪声偏差的方差
   // clang-format off
@@ -143,7 +143,7 @@ void Target::update(const Armor & armor)
 {
   // 装甲板匹配
   int id;
-  auto min_angle_error = 1e10;
+  auto min_total_error = 1e10;
   const std::vector<Eigen::Vector4d> & xyza_list = armor_xyza_list();
 
   std::vector<std::pair<Eigen::Vector4d, int>> xyza_i_list;
@@ -159,16 +159,44 @@ void Target::update(const Armor & armor)
       return ypd1[2] < ypd2[2];
     });
 
-  // 取前3个distance最小的装甲板
+  // 取前3个distance最小的装甲板，综合 angle_error + pos_error 匹配
   for (int i = 0; i < 3; i++) {
     const auto & xyza = xyza_i_list[i].first;
     Eigen::Vector3d ypd = tools::xyz2ypd(xyza.head(3));
     auto angle_error = std::abs(tools::limit_rad(armor.ypr_in_world[0] - xyza[3])) +
                        std::abs(tools::limit_rad(armor.ypd_in_world[0] - ypd[0]));
 
-    if (std::abs(angle_error) < std::abs(min_angle_error)) {
+    // 增加 PnP 位置距离约束，防止 r 变化后纯角度匹配出错
+    double pos_error = (armor.xyz_in_world.head(3) - xyza.head(3)).norm();
+    // 位置误差权重：距离越远，pos_error 的绝对值越大，需要归一化
+    double distance = armor.ypd_in_world[2];  // 到装甲板的距离(m)
+    double pos_weight = (distance > 0.5) ? 0.5 / distance : 1.0;  // 归一化
+    double total_error = angle_error + pos_error * pos_weight;
+
+    if (total_error < min_total_error) {
       id = xyza_i_list[i].second;
-      min_angle_error = angle_error;
+      min_total_error = total_error;
+    }
+  }
+
+  // ID 连续性约束：旋转时 ID 只能变化 ±1，不可能跳过一面装甲板
+  // 如果 angle matching 给出的 ID 跳了 ≥2，说明匹配出错（EKF 角度滞后导致）
+  // 用旋转方向推断正确的相邻 ID
+  if (update_count_ > 0) {
+    int id_delta = (id - last_id + armor_num_) % armor_num_;
+    if (id_delta > 1 && id_delta < armor_num_ - 1) {
+      int corrected_id;
+      if (ekf_.x[7] >= 0) {
+        // 正向旋转（a 增大）→ ID 应该 +1
+        corrected_id = (last_id + 1) % armor_num_;
+      } else {
+        // 反向旋转（a 减小）→ ID 应该 -1
+        corrected_id = (last_id - 1 + armor_num_) % armor_num_;
+      }
+      tools::logger()->debug(
+        "[Target] ID jump corrected: matched={}, last={}, corrected={}, w={:.2f}",
+        id, last_id, corrected_id, ekf_.x[7]);
+      id = corrected_id;
     }
   }
 
@@ -224,6 +252,11 @@ void Target::update_ypda(const Armor & armor, int id)
   Eigen::VectorXd z{{ypd[0], ypd[1], ypd[2], ypr[0]}};  //获得观测量
 
   ekf_.update(z, H, R, h, z_subtract);
+
+  // 诊断日志：打印当前几何参数和观测 pitch
+  tools::logger()->debug(
+    "[Target] r={:.4f} l={:.4f} h={:.4f} obs_pitch={:.1f}deg pred_pitch=15deg",
+    ekf_.x[8], ekf_.x[9], ekf_.x[10], armor.ypr_in_world[1] * 57.3);
 }
 
 Eigen::VectorXd Target::ekf_x() const { return ekf_.x; }
@@ -247,10 +280,23 @@ bool Target::diverged() const
   auto r_ok = ekf_.x[8] > 0.05 && ekf_.x[8] < 0.5;
   auto l_ok = ekf_.x[8] + ekf_.x[9] > 0.05 && ekf_.x[8] + ekf_.x[9] < 0.5;
 
-  if (r_ok && l_ok) return false;
+  if (!r_ok || !l_ok) {
+    tools::logger()->debug("[Target] diverged: r={:.3f}, l={:.3f}", ekf_.x[8], ekf_.x[9]);
+    return true;
+  }
 
-  tools::logger()->debug("[Target] r={:.3f}, l={:.3f}", ekf_.x[8], ekf_.x[9]);
-  return true;
+  // 检查所有预测装甲板的距离是否合理（防止大绿框）
+  for (int i = 0; i < armor_num_; i++) {
+    Eigen::Vector3d xyz = h_armor_xyz(ekf_.x, i);
+    double dist = xyz.norm();
+    if (dist < 0.3 || dist > 15.0 || std::isnan(dist)) {
+      tools::logger()->debug(
+        "[Target] diverged: armor {} dist={:.3f} (out of [0.3, 15.0])", i, dist);
+      return true;
+    }
+  }
+
+  return false;
 }
 
 bool Target::convergened()
@@ -410,4 +456,151 @@ void Target::update_pixel(const Armor & armor, const Solver & solver)
     (int)visible_indices.size(), min_error);
 }
 
+void Target::update_bridge(
+  const Armor & full_armor, const Armor & partial_armor, int full_id,
+  const Solver & solver)
+{
+  // 门槛：ypda update 至少做过 5 次，确保 cx/cy/a 已初步收敛
+  if (update_count_ < 5) {
+    tools::logger()->debug("[Target] bridge update skipped: update_count_={} < 5", update_count_);
+    return;
+  }
+
+  // 收集 partial 装甲板的可见关键点
+  std::vector<int> visible_indices;
+  std::vector<cv::Point2f> visible_pixels;
+  for (int k = 0; k < 4; k++) {
+    if (k < (int)partial_armor.kpt_visibility.size() && partial_armor.kpt_visibility[k] > 0.5f) {
+      visible_indices.push_back(k);
+      visible_pixels.push_back(partial_armor.points[k]);
+    }
+  }
+  if ((int)visible_indices.size() < 2) return;
+
+  // ---- 邻接 ID 确定（bridge 的核心价值：不猜 ID，靠几何邻接）----
+  // 尝试两个相邻 ID，用 EKF 状态预测重投影选最优
+  int candidate_ids[2] = {
+    (full_id + 1) % armor_num_,
+    (full_id - 1 + armor_num_) % armor_num_};
+
+  int best_partial_id = candidate_ids[0];
+  double best_error = 1e10;
+
+  for (int c = 0; c < 2; c++) {
+    int pid = candidate_ids[c];
+    Eigen::Vector3d xyz_i = h_armor_xyz(ekf_.x, pid);
+    double yaw_i = tools::limit_rad(ekf_.x[6] + pid * 2.0 * CV_PI / armor_num_);
+    auto reproj = solver.reproject_armor(xyz_i, yaw_i, armor_type, name);
+
+    double error = 0;
+    for (int k = 0; k < (int)visible_indices.size(); k++) {
+      error += cv::norm(visible_pixels[k] - reproj[visible_indices[k]]);
+    }
+    if (error < best_error) {
+      best_error = error;
+      best_partial_id = pid;
+    }
+  }
+
+  // 重投影误差过大说明不可靠
+  if (best_error > 200.0) return;
+
+  const int partial_id = best_partial_id;
+  const int obs_dim = 2 * (int)visible_indices.size();
+
+  // 构造观测向量
+  Eigen::VectorXd z(obs_dim);
+  for (int k = 0; k < (int)visible_indices.size(); k++) {
+    z[2 * k] = visible_pixels[k].x;
+    z[2 * k + 1] = visible_pixels[k].y;
+  }
+
+  // 观测函数：使用 EKF 状态计算相邻装甲板位置
+  // h_armor_xyz 依赖 cx/cy/cz/a/r/l/h → 数值雅可比中这些列非零
+  // → EKF update 同时约束旋转中心 cx/cy 和几何参数 r/l/h
+  // bridge 的价值在于邻接 ID 确定可靠，不会出现 pixel update 的 ID 猜错正反馈循环
+  auto h = [&](const Eigen::VectorXd & x_state) -> Eigen::VectorXd {
+    Eigen::Vector3d xyz_i = h_armor_xyz(x_state, partial_id);
+    double yaw_i = tools::limit_rad(x_state[6] + partial_id * 2.0 * CV_PI / armor_num_);
+    auto reproj = solver.reproject_armor(xyz_i, yaw_i, armor_type, name);
+
+    Eigen::VectorXd z_pred(obs_dim);
+    for (int k = 0; k < (int)visible_indices.size(); k++) {
+      z_pred[2 * k] = reproj[visible_indices[k]].x;
+      z_pred[2 * k + 1] = reproj[visible_indices[k]].y;
+    }
+    return z_pred;
+  };
+
+  // 数值雅可比
+  const int state_dim = ekf_.x.size();
+  Eigen::MatrixXd H(obs_dim, state_dim);
+  constexpr double eps = 1e-5;
+  Eigen::VectorXd h0 = h(ekf_.x);
+  for (int j = 0; j < state_dim; j++) {
+    Eigen::VectorXd x_pert = ekf_.x;
+    x_pert[j] += eps;
+    if (j == 6) x_pert[j] = tools::limit_rad(x_pert[j]);
+    H.col(j) = (h(x_pert) - h0) / eps;
+  }
+
+  // 观测噪声：根据 r 的协方差动态放大，初期不信任 bridge 观测
+  double r_cov = ekf_.P(8, 8);
+  double R_scale = std::max(1.0, r_cov * 10.0);
+  Eigen::VectorXd R_dig = Eigen::VectorXd::Constant(obs_dim, 400.0 * R_scale);
+  Eigen::MatrixXd R = R_dig.asDiagonal();
+
+  auto z_subtract = [](const Eigen::VectorXd & a, const Eigen::VectorXd & b) -> Eigen::VectorXd {
+    return a - b;
+  };
+
+  // 保存 EKF 状态用于可能的回滚
+  Eigen::VectorXd x_backup = ekf_.x;
+  Eigen::MatrixXd P_backup = ekf_.P;
+
+  // 计算 bridge 前 full armor 的重投影误差（基线）
+  auto compute_full_reproj_err = [&](const Eigen::VectorXd & x_state) -> double {
+    Eigen::Vector3d fxyz = h_armor_xyz(x_state, full_id);
+    double fyaw = tools::limit_rad(x_state[6] + full_id * 2.0 * CV_PI / armor_num_);
+    auto freproj = solver.reproject_armor(fxyz, fyaw, armor_type, name);
+    double ferr = 0;
+    int fcount = 0;
+    for (int k = 0; k < 4; k++) {
+      if (k < (int)full_armor.kpt_visibility.size() && full_armor.kpt_visibility[k] <= 0.5f) continue;
+      ferr += cv::norm(full_armor.points[k] - freproj[k]);
+      fcount++;
+    }
+    return (fcount > 0) ? ferr / fcount : 0.0;
+  };
+  double err_before = compute_full_reproj_err(x_backup);
+
+  ekf_.update(z, H, R, h, z_subtract);
+
+  // 后验安全钳位：防止 r/l/h 被推到物理不合理的值
+  ekf_.x[8] = std::clamp(ekf_.x[8], 0.05, 0.45);
+  if (armor_num_ == 4) {
+    ekf_.x[9] = std::clamp(ekf_.x[9], -0.15, 0.15);   // l
+    ekf_.x[10] = std::clamp(ekf_.x[10], -0.10, 0.10);  // h
+  }
+
+  // 后验安全检查：相对比较 — bridge 后 full armor 重投影不能比 bridge 前更差
+  double err_after = compute_full_reproj_err(ekf_.x);
+  if (err_after > err_before + 5.0) {
+    // bridge update 让 full armor 的重投影变差了，回滚
+    ekf_.x = x_backup;
+    ekf_.P = P_backup;
+    tools::logger()->debug(
+      "[Target] bridge update REVERTED: full_reproj {:.1f} -> {:.1f} (got worse)",
+      err_before, err_after);
+    return;
+  }
+
+  tools::logger()->debug(
+    "[Target] bridge update: full_id={}, partial_id={}, visible={}, reproj_err={:.1f}, "
+    "r={:.4f}, l={:.4f}, h={:.4f}, R_scale={:.1f}, full_reproj={:.1f}",
+    full_id, partial_id, (int)visible_indices.size(), best_error,
+    ekf_.x[8], ekf_.x[9], ekf_.x[10], R_scale, err_after);
+}
+
 }  // namespace auto_aim
+
