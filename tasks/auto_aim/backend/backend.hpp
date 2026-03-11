@@ -9,8 +9,8 @@
 
 // TODO: Just for debug, remember to remove it.
 // #define TENSORRT_AVAILABLE
-#define OPENVINO_AVAILABLE
-#define ORT_AVAILABLE
+// #define OPENVINO_AVAILABLE
+// #define ORT_AVAILABLE
 
 namespace auto_aim
 {
