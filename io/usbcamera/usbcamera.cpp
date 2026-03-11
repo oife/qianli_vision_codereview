@@ -1,4 +1,4 @@
-﻿#include "usbcamera.hpp"
+#include "usbcamera.hpp"
 
 #include <stdexcept>
 

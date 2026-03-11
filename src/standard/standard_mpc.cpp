@@ -1,4 +1,4 @@
-﻿// 文件说明：标准MPC入口，解析配置后初始化云台/相机与自瞄、打符模块，
+// 文件说明：标准MPC入口，解析配置后初始化云台/相机与自瞄、打符模块，
 // 使用多线程检测与MPC规划器生成控制指令。
 #include <chrono>
 #include <opencv2/opencv.hpp>
@@ -98,6 +98,7 @@ int main(int argc, char * argv[])
     }
 
     camera.read(img, t);
+
     auto q = gimbal.q(t);
     auto gs = gimbal.state();
     recorder.record(img, q, t);

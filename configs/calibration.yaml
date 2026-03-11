@@ -2,7 +2,14 @@ pattern_cols: 11
 pattern_rows: 8
 center_distance_mm: 15
 
-R_gimbal2imubody: [1, 0, 0, 0, 1, 0, 0, 0, -1]
+# R_gimbal2imubody: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+# R_gimbal2imubody: [1, 0, 0, 0, 1, 0, 0, 0, -1]
+# R_gimbal2imubody: [1, 0, 0, 0, -1, 0, 0, 0, 1]
+# R_gimbal2imubody: [1, 0, 0, 0, -1, 0, 0, 0, -1]
+R_gimbal2imubody: [-1, 0, 0, 0, 1, 0, 0, 0, 1]
+# R_gimbal2imubody: [-1, 0, 0, 0, 1, 0, 0, 0, -1]
+# R_gimbal2imubody: [-1, 0, 0, 0, -1, 0, 0, 0, 1]
+# R_gimbal2imubody: [-1, 0, 0, 0, -1, 0, 0, 0, -1]
 
 # IMU数据源选择: "gimbal" "can" 或 "dm_imu"
 # can: 通过CAN总线(CBoard)读取IMU数据
@@ -14,6 +21,7 @@ camera_name: "hikrobot"
 exposure_ms: 3
 gain: 10.0
 vid_pid: "2bdf:0001"
+image_rotate_180: true
 
 #####-----cboard参数（仅在使用can时需要）-----#####
 # 当imu_source为"can"时，需要取消注释以下参数
@@ -22,6 +30,6 @@ vid_pid: "2bdf:0001"
 # send_canid: 0xff
 # can_interface: "can0"
 
-# 重投影误差: 0.0842px
-camera_matrix: [2353.3226816780052, 0, 706.83516850432204, 0, 2356.3245570217405, 575.84986695564965, 0, 0, 1]
-distort_coeffs: [-0.039943342287164181, 0.18058605778304068, -0.00016839431236218209, 0.0025414097388808542, 0]
+# 重投影误差: 0.1840px
+camera_matrix: [1802.1719526069726, 0, 721.92876481566952, 0, 1803.3806313111968, 569.56345908002345, 0, 0, 1]
+distort_coeffs: [-0.09261507425518023, 0.22187246728557139, 0.00075669972573856408, 0.0014021340601661364, 0]
