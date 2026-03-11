@@ -30,6 +30,7 @@ add_library(auto_aim OBJECT
     planner/quintic_polynomial/quintic_polynomial.cpp
     backend/backend.cpp
     backend/openvino_backend.cpp
+    backend/ort_backend.cpp
 )
 
 if(NOT ONNXRuntime_FOUND)
@@ -69,5 +70,6 @@ if(OpenVINO_FOUND)
     target_link_libraries(auto_aim openvino::runtime)
 else()
     message(STATUS "OpenVINO not found")
+endif()
 
 target_link_libraries(auto_aim io tinympcstatic)
