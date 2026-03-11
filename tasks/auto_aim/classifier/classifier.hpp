@@ -4,7 +4,6 @@
 #include <string>
 
 #include "tasks/auto_aim/armor/armor.hpp"
-#include "tasks/auto_aim/backend/backend.hpp"
 
 namespace auto_aim
 {
@@ -15,11 +14,8 @@ public:
 
   void classify(Armor & armor);
 
-  void backend_classify(Armor & armor);
-
 private:
   cv::dnn::Net net_;
-  Backend backend_;
 };
 
 }  // namespace auto_aim

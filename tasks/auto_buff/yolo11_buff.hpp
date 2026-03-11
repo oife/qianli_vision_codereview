@@ -1,11 +1,14 @@
-﻿#ifndef AUTO_BUFF__YOLO11_BUFF_HPP
+#ifndef AUTO_BUFF__YOLO11_BUFF_HPP
 #define AUTO_BUFF__YOLO11_BUFF_HPP
+
 #include <yaml-cpp/yaml.h>
 
 #include <filesystem>
 #include <opencv2/opencv.hpp>
-#include <openvino/openvino.hpp>
+#include <string>
+#include <vector>
 
+#include "tasks/auto_aim/backend/backend.hpp"
 #include "tools/logger/logger.hpp"
 
 namespace auto_buff
@@ -18,39 +21,27 @@ public:
   struct Object
   {
     cv::Rect_<float> rect;
-    int label;
-    float prob;
+    int label{0};
+    float prob{0.F};
     std::vector<cv::Point2f> kpt;
   };
 
-  YOLO11_BUFF(const std::string & config);
+  explicit YOLO11_BUFF(const std::string & config);
 
-  // 使用NMS，用来获取多个框
   std::vector<Object> get_multicandidateboxes(cv::Mat & image);
-
-  // 寻找置信度最高的框
   std::vector<Object> get_onecandidatebox(cv::Mat & image);
 
 private:
-  ov::Core core;  // 创建OpenVINO Runtime Core对象
-  std::shared_ptr<ov::Model> model;
-  ov::CompiledModel compiled_model;
-  ov::InferRequest infer_request;
-  ov::Tensor input_tensor;
-  const int NUM_POINTS = 6;
+  std::vector<Object> infer(cv::Mat & image, bool use_nms);
+  void draw_result(cv::Mat & image, const Object & obj) const;
+  void save(const std::string & program_name, const cv::Mat & image);
 
-  // 转换图像数据: 先转换元素类型, (可选)然后归一化到[0, 1], (可选)然后交换RB通道
-  void convert(
-    const cv::Mat & input, cv::Mat & output, const bool normalize, const bool exchangeRB) const;
-
-  // 对网络的输入为图片数据的节点进行赋值，实现图片数据输入网络,return 缩放因子, 该缩放是为了将input_image塞进input_tensor
-  float fill_tensor_data_image(ov::Tensor & input_tensor, const cv::Mat & input_image) const;
-
-  // 打印模型信息, 这个函数修改自$${OPENVINO_COMMON}/utils/src/args_helper.cpp的同名函数
-  void printInputAndOutputsInfo(const ov::Model & network);
-
-  // 将image保存为"../result/$${programName}.jpg"
-  void save(const std::string & programName, const cv::Mat & image);
+  auto_aim::Backend backend_;
+  std::string model_path_;
+  bool enabled_{false};
+  static constexpr int INPUT_SIZE = 640;
+  static constexpr int NUM_POINTS = 6;
 };
 }  // namespace auto_buff
+
 #endif

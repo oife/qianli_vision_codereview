@@ -5,21 +5,33 @@
 
 #include <memory>
 #include <opencv2/opencv.hpp>
+#include <string>
 #include <vector>
 
-// TODO: Just for debug, remember to remove it.
-// #define TENSORRT_AVAILABLE
-#define OPENVINO_AVAILABLE
-// #define ORT_AVAILABLE
+#define TENSORRT_AVAILABLE
 
 namespace auto_aim
 {
+struct BackendProfile
+{
+  double preprocess_ms{0.0};
+  double prepare_input_ms{0.0};
+  double h2d_submit_ms{0.0};
+  double enqueue_submit_ms{0.0};
+  double d2h_submit_ms{0.0};
+  double sync_ms{0.0};
+  double output_convert_ms{0.0};
+  double infer_ms{0.0};
+  double total_ms{0.0};
+};
+
 struct BackendConfig
 {
   cv::Size input_size{640, 640};
   int input_type{CV_8UC3};
   cv::Scalar padding_color{0, 0, 0};
   bool preprocess{true};
+  bool center_pad{false};
 };
 
 class BackendCtx
@@ -90,10 +102,16 @@ public:
    */
   virtual std::string get_name() const = 0;
 
+  /**
+   * @brief 获取最近一次推理的阶段耗时
+   */
+  const BackendProfile & get_last_profile() const { return last_profile_; }
+
 protected:
   BackendConfig model_config_;
   std::string config_path_;
   YAML::Node yaml_;
+  BackendProfile last_profile_;
 };
 
 /**
@@ -160,8 +178,15 @@ public:
    */
   std::string get_name() const;
 
+  /**
+   * @brief 获取最近一次推理的阶段耗时
+   */
+  const BackendProfile & get_last_profile() const;
+
 private:
-  void backend_allocate(const std::string config_path);
+  void backend_allocate(const std::string & config_path, const std::string & model_path);
+
+  std::string config_path_;
 
   std::unique_ptr<BackendBase> backend_;
 };

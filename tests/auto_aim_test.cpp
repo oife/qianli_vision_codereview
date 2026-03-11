@@ -14,6 +14,7 @@
 
 #include <chrono>
 #include <fstream>
+#include <memory>
 #include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
 
@@ -32,6 +33,7 @@ const std::string keys =
   "{config-path c  | configs/demo.yaml | yaml配置文件的路径}"
   "{start-index s  | 0                 | 视频起始帧下标    }"
   "{end-index e    | 0                 | 视频结束帧下标    }"
+  "{no-gui         | false             | 无GUI模式         }"
   "{@input-path    | assets/demo/demo  | avi和txt文件的路径}";
 
 int main(int argc, char * argv[])
@@ -46,8 +48,10 @@ int main(int argc, char * argv[])
   auto config_path = cli.get<std::string>("config-path");
   auto start_index = cli.get<int>("start-index");
   auto end_index = cli.get<int>("end-index");
+  auto no_gui = cli.get<bool>("no-gui");
 
-  tools::Plotter plotter;
+  std::unique_ptr<tools::Plotter> plotter;
+  if (!no_gui) plotter = std::make_unique<tools::Plotter>();
   tools::Exiter exiter;
 
   auto video_path = fmt::format("{}.avi", input_path);
@@ -55,13 +59,16 @@ int main(int argc, char * argv[])
   cv::VideoCapture video(video_path);
   std::ifstream text(text_path);
 
-  auto_aim::YOLO yolo(config_path);
+  auto_aim::YOLO yolo(config_path, !no_gui);
   auto_aim::Solver solver(config_path);
   auto_aim::Tracker tracker(config_path, solver);
   auto_aim::Aimer aimer(config_path);
 
   cv::Mat img, drawing;
   auto t0 = std::chrono::steady_clock::now();
+  auto bench_start = std::chrono::steady_clock::now();
+  double total_read = 0.0, total_yolo = 0.0, total_tracker = 0.0, total_aimer = 0.0;
+  int processed_count = 0;
 
   auto_aim::Target last_target;
   io::Command last_command;
@@ -76,12 +83,14 @@ int main(int argc, char * argv[])
   for (int frame_count = start_index; !exiter.exit(); frame_count++) {
     if (end_index > 0 && frame_count > end_index) break;
 
+    auto read_start = std::chrono::steady_clock::now();
     video.read(img);
     if (img.empty()) break;
 
     double t, w, x, y, z;
     text >> t >> w >> x >> y >> z;
     auto timestamp = t0 + std::chrono::microseconds(int(t * 1e6));
+    auto read_end = std::chrono::steady_clock::now();
 
     /// 自瞄核心逻辑
 
@@ -105,6 +114,24 @@ int main(int argc, char * argv[])
     /// 调试输出
 
     auto finish = std::chrono::steady_clock::now();
+    total_read += tools::delta_time(read_end, read_start);
+    total_yolo += tools::delta_time(tracker_start, yolo_start);
+    total_tracker += tools::delta_time(aimer_start, tracker_start);
+    total_aimer += tools::delta_time(finish, aimer_start);
+    processed_count++;
+
+    if (processed_count % 100 == 0) {
+      auto elapsed = tools::delta_time(std::chrono::steady_clock::now(), bench_start);
+      tools::logger()->info(
+        "[{}] FPS: {:.1f} | read: {:.2f}ms | yolo: {:.2f}ms | tracker: {:.2f}ms | aimer: {:.2f}ms | targets: {}",
+        frame_count, processed_count / elapsed,
+        total_read / processed_count * 1000.0,
+        total_yolo / processed_count * 1000.0,
+        total_tracker / processed_count * 1000.0,
+        total_aimer / processed_count * 1000.0,
+        targets.size());
+    }
+
     tools::logger()->info(
       "[{}] yolo: {:.1f}ms, tracker: {:.1f}ms, aimer: {:.1f}ms", frame_count,
       tools::delta_time(tracker_start, yolo_start) * 1e3,
@@ -198,12 +225,24 @@ int main(int argc, char * argv[])
       data["recent_nis_failures"] = target.ekf().data.at("recent_nis_failures");
     }
 
-    plotter.plot(data);
+    if (plotter) plotter->plot(data);
 
-    cv::resize(img, img, {}, 0.5, 0.5);  // 显示时缩小图片尺寸
-    cv::imshow("reprojection", img);
-    auto key = cv::waitKey(30);
-    if (key == 'q') break;
+    if (!no_gui) {
+      cv::resize(img, img, {}, 0.5, 0.5);  // 显示时缩小图片尺寸
+      cv::imshow("reprojection", img);
+      auto key = cv::waitKey(30);
+      if (key == 'q') break;
+    }
+  }
+
+  auto total_time = tools::delta_time(std::chrono::steady_clock::now(), bench_start);
+  if (processed_count > 0) {
+    tools::logger()->info("=== Final Results ===");
+    tools::logger()->info("Frames: {}, Total time: {:.2f}s, FPS: {:.1f}", processed_count, total_time, processed_count / total_time);
+    tools::logger()->info("Avg read: {:.2f} ms", total_read / processed_count * 1000.0);
+    tools::logger()->info("Avg yolo: {:.2f} ms", total_yolo / processed_count * 1000.0);
+    tools::logger()->info("Avg tracker: {:.2f} ms", total_tracker / processed_count * 1000.0);
+    tools::logger()->info("Avg aimer: {:.2f} ms", total_aimer / processed_count * 1000.0);
   }
 
   return 0;

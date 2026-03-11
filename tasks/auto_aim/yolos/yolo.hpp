@@ -8,6 +8,14 @@
 
 namespace auto_aim
 {
+struct DetectProfile
+{
+  BackendProfile backend;
+  double backend_execute_ms{0.0};
+  double postprocess_ms{0.0};
+  double detect_total_ms{0.0};
+};
+
 /**
  * @brief YOLO检测器基类接口
  * 
@@ -34,6 +42,14 @@ public:
    */
   virtual std::list<Armor> postprocess(
     double scale, cv::Mat & output, const cv::Mat & bgr_img, int frame_count) = 0;
+
+  /**
+   * @brief 获取最近一次检测的阶段耗时
+   */
+  const DetectProfile & get_last_profile() const { return last_profile_; }
+
+protected:
+  DetectProfile last_profile_;
 };
 
 /**
@@ -71,6 +87,11 @@ public:
    */
   std::list<Armor> postprocess(
     double scale, cv::Mat & output, const cv::Mat & bgr_img, int frame_count);
+
+  /**
+   * @brief 获取最近一次检测的阶段耗时
+   */
+  const DetectProfile & get_last_profile() const;
 
 private:
   std::unique_ptr<YOLOBase> yolo_;  ///< YOLO检测器实例指针

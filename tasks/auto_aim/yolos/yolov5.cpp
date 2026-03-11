@@ -3,10 +3,12 @@
 #include <fmt/chrono.h>
 #include <yaml-cpp/yaml.h>
 
+#include <chrono>
 #include <filesystem>
 
 #include "tools/img_tools/img_tools.hpp"
 #include "tools/logger/logger.hpp"
+#include "tools/math_tools/math_tools.hpp"
 
 namespace auto_aim
 {
@@ -38,10 +40,12 @@ YOLOV5::YOLOV5(const std::string & config_path, bool debug)
   if (!backend_.init(model_path_, config)) {
     throw std::runtime_error("Backend initializing failed");
   }
+  backend_ctx_ = backend_.create_ctx();
 }
 
 std::list<Armor> YOLOV5::detect(const cv::Mat & raw_img, int frame_count)
 {
+  auto detect_start = std::chrono::steady_clock::now();
   // 检查输入图像是否为空
   if (raw_img.empty()) {
     tools::logger()->warn("Empty img!, camera drop!");
@@ -64,10 +68,18 @@ std::list<Armor> YOLOV5::detect(const cv::Mat & raw_img, int frame_count)
 
   double scale;
   cv::Mat output;
-  auto ctx = backend_.create_ctx();
-  backend_.execute(bgr_img, output, scale, ctx.get());
+  backend_.execute(bgr_img, output, scale, backend_ctx_.get());
+  auto execute_end = std::chrono::steady_clock::now();
 
-  return parse(scale, output, raw_img, frame_count);
+  last_profile_.backend = backend_.get_last_profile();
+  last_profile_.backend_execute_ms = last_profile_.backend.total_ms;
+
+  auto armors = parse(scale, output, raw_img, frame_count);
+  auto detect_end = std::chrono::steady_clock::now();
+  last_profile_.postprocess_ms = tools::delta_time(detect_end, execute_end) * 1000.0;
+  last_profile_.detect_total_ms = tools::delta_time(detect_end, detect_start) * 1000.0;
+
+  return armors;
 }
 
 std::list<Armor> YOLOV5::parse(

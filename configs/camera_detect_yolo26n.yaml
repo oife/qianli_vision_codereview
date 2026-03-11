@@ -1,6 +1,7 @@
 enemy_color: "red"
 
 #####-----神经网络参数-----#####
+backend: tensorrt
 yolo_name: yolo26n
 yolo26n_model_path: assets/best_fp32.onnx
 classify_model: assets/tiny_resnet.onnx

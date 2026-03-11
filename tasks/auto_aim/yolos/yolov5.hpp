@@ -64,6 +64,7 @@ private:
   double binary_threshold_;            ///< 二值化阈值
 
   Backend backend_;
+  std::unique_ptr<BackendCtx> backend_ctx_;
 
   cv::Rect roi_;        ///< ROI区域
   cv::Point2f offset_;  ///< ROI偏移量

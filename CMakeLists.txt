@@ -12,8 +12,6 @@ find_package(Eigen3 REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(yaml-cpp REQUIRED)
 find_package(nlohmann_json REQUIRED)
-set(OpenVINO_DIR "/opt/intel/openvino_2024.6.0/runtime/cmake/")
-find_package(OpenVINO REQUIRED)
 
 include_directories(${EIGEN3_INCLUDE_DIR})
 include_directories(${OpenCV_INCLUDE_DIRS})
@@ -43,8 +41,8 @@ target_link_libraries(mt_standard ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim auto
 target_link_libraries(standard_mpc ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim auto_buff tools io)
 target_link_libraries(auto_aim_debug_mpc ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim auto_buff tools io)
 target_link_libraries(mt_auto_aim_debug ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim auto_buff tools io)
-target_link_libraries(auto_buff_debug ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_buff tools io ${CERES_LIBRARIES})
-target_link_libraries(auto_buff_debug_mpc ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_buff tools io ${CERES_LIBRARIES})
+target_link_libraries(auto_buff_debug ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim auto_buff tools io ${CERES_LIBRARIES})
+target_link_libraries(auto_buff_debug_mpc ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim auto_buff tools io ${CERES_LIBRARIES})
 target_link_libraries(uav ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim auto_buff tools io)
 target_link_libraries(uav_debug ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim tools io)
 target_link_libraries(hero ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim tools io)
@@ -81,7 +79,7 @@ add_executable(dm_test tests/dm_test.cpp)
 add_executable(minimum_vision_system tests/minimum_vision_system.cpp)
 
 target_link_libraries(auto_aim_test ${OpenCV_LIBS} fmt::fmt yaml-cpp tools io auto_aim)
-target_link_libraries(auto_buff_test ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_buff tools io)
+target_link_libraries(auto_buff_test ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim auto_buff tools io)
 target_link_libraries(camera_auto_aim_test ${OpenCV_LIBS} fmt::fmt yaml-cpp tools io auto_aim)
 target_link_libraries(camera_detect_test ${OpenCV_LIBS} fmt::fmt yaml-cpp tools auto_aim io)
 target_link_libraries(camera_test ${OpenCV_LIBS} fmt::fmt tools io)
@@ -114,27 +112,6 @@ target_link_libraries(camera_fps_test ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim 
 
 add_executable(full_pipeline_test tests/full_pipeline_test.cpp)
 target_link_libraries(full_pipeline_test ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim tools io)
-
-add_executable(yolov8_pose_infer_test tests/yolov8_pose_infer_test.cpp)
-target_link_libraries(yolov8_pose_infer_test ${OpenCV_LIBS} openvino::runtime)
-
-add_executable(yolov8_pose_video_detect tests/yolov8_pose_video_detect.cpp)
-target_link_libraries(yolov8_pose_video_detect ${OpenCV_LIBS} openvino::runtime)
-
-add_executable(yolov5_batch_infer tests/yolov5_batch_infer.cpp)
-target_link_libraries(yolov5_batch_infer ${OpenCV_LIBS} openvino::runtime)
-
-add_executable(yolo26n_pose_infer_test tests/yolo26n_pose_infer_test.cpp)
-target_link_libraries(yolo26n_pose_infer_test ${OpenCV_LIBS} openvino::runtime)
-
-add_executable(yolo26n_pose_video_detect tests/yolo26n_pose_video_detect.cpp)
-target_link_libraries(yolo26n_pose_video_detect ${OpenCV_LIBS} openvino::runtime)
-
-add_executable(yolo26n_v2_infer_test tests/yolo26n_v2_infer_test.cpp)
-target_link_libraries(yolo26n_v2_infer_test openvino::runtime)
-
-add_executable(yolo26n_v2_video_detect tests/yolo26n_v2_video_detect.cpp)
-target_link_libraries(yolo26n_v2_video_detect ${OpenCV_LIBS} openvino::runtime)
 
 # 检查 ROS 环境
 find_package(ament_cmake QUIET)

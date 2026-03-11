@@ -3,11 +3,11 @@
 
 #include <list>
 #include <opencv2/opencv.hpp>
-#include <openvino/openvino.hpp>
 #include <string>
 #include <vector>
 
 #include "tasks/auto_aim/armor/armor.hpp"
+#include "tasks/auto_aim/backend/backend.hpp"
 #include "tasks/auto_aim/yolos/yolo.hpp"
 
 namespace auto_aim
@@ -55,18 +55,14 @@ private:
   static constexpr int NUM_KPTS = 4;
   static constexpr float BIG_ARMOR_RATIO_THRESH = 2.5f;
 
-  std::string device_;
   std::string model_path_;
   bool debug_;
 
   float score_threshold_ = 0.25f;
   float nms_threshold_ = 0.45f;
   double min_confidence_;
-
-  ov::Core core_;
-  ov::CompiledModel compiled_model_;
-  ov::InferRequest infer_request_;
-  ov::Tensor input_tensor_;
+  Backend backend_;
+  std::unique_ptr<BackendCtx> backend_ctx_;
 
   // letterbox 参数（在 detect 中计算，postprocess 中使用）
   float scale_ = 1.f;

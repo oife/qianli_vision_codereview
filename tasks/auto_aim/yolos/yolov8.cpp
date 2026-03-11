@@ -5,11 +5,13 @@
 #include <yaml-cpp/yaml.h>
 
 #include <algorithm>
+#include <chrono>
 #include <filesystem>
 #include <random>
 
 #include "tools/img_tools/img_tools.hpp"
 #include "tools/logger/logger.hpp"
+#include "tools/math_tools/math_tools.hpp"
 
 namespace auto_aim
 {
@@ -49,6 +51,7 @@ YOLOV8::YOLOV8(const std::string & config_path, bool debug)
 
 std::list<Armor> YOLOV8::detect(const cv::Mat & raw_img, int frame_count)
 {
+  auto detect_start = std::chrono::steady_clock::now();
   if (raw_img.empty()) {
     tools::logger()->warn("Empty img!, camera drop!");
     return std::list<Armor>();
@@ -71,8 +74,17 @@ std::list<Armor> YOLOV8::detect(const cv::Mat & raw_img, int frame_count)
   cv::Mat output;
   auto ctx = backend_.create_ctx();
   backend_.execute(bgr_img, output, scale, ctx.get());
+  auto execute_end = std::chrono::steady_clock::now();
 
-  return parse(scale, output, raw_img, frame_count);
+  last_profile_.backend = backend_.get_last_profile();
+  last_profile_.backend_execute_ms = last_profile_.backend.total_ms;
+
+  auto armors = parse(scale, output, raw_img, frame_count);
+  auto detect_end = std::chrono::steady_clock::now();
+  last_profile_.postprocess_ms = tools::delta_time(detect_end, execute_end) * 1000.0;
+  last_profile_.detect_total_ms = tools::delta_time(detect_end, detect_start) * 1000.0;
+
+  return armors;
 }
 
 /**

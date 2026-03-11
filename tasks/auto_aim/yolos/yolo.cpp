@@ -46,4 +46,6 @@ std::list<Armor> YOLO::postprocess(
   return yolo_->postprocess(scale, output, bgr_img, frame_count);
 }
 
+const DetectProfile & YOLO::get_last_profile() const { return yolo_->get_last_profile(); }
+
 }  // namespace auto_aim
