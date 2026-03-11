@@ -2,9 +2,13 @@
 #define AUTO_AIM__TENSORRT_BACKEND_HPP
 
 #include <NvInfer.h>
-#include <cuda_runtime_api.h>
+#include <NvOnnxParser.h>
+#include <cuda.h>
+
+#include <fstream>
 
 #include "backend.hpp"
+#include "tools/logger/logger.hpp"
 
 namespace auto_aim
 {
@@ -15,10 +19,13 @@ public:
   ~TensorRTBackend() override;
 
   bool init(const std::string & model_path, const BackendConfig & model_config) override;
-  cv::Mat infer(const cv::Mat & input) override;
-  // cv::Size get_input_size() const override;
+  bool infer(const cv::Mat & input, cv::Mat & output, BackendCtx * ctx) override;
+  std::unique_ptr<BackendCtx> create_ctx() override;
+  std::string get_name() const override;
 
 private:
+  void onnxToEngine(const char * onnx_file, int memory_size);
+
   nvinfer1::ICudaEngine * engine = nullptr;
   nvinfer1::IExecutionContext * context_ = nullptr;
   cv::Size input_size_{416, 416};
@@ -27,6 +34,14 @@ private:
   int input_index_;
   int output_index_;
   cudaStream_t stream_;
+
+  class Logger : public nvinfer1::ILogger
+  {
+    void log(Severity severity, const char * msg) noexcept override
+    {
+      if (severity <= Severity::kWARNING) tools::logger()->info("{}", msg);
+    }
+  } logger_;
 };
 }  // namespace auto_aim
 

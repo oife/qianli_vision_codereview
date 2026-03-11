@@ -20,14 +20,13 @@ public:
 private:
   ov::Core core_;
   ov::CompiledModel compiled_model_;
-  std::string device_;
-};
 
-class OpenVINOCtx : public BackendCtx
-{
-private:
-  ov::InferRequest infer_request_;
-  friend class OpenVINOBackend;
+  class OpenVINOCtx : public BackendCtx
+  {
+  private:
+    ov::InferRequest infer_request_;
+    friend class OpenVINOBackend;
+  };
 };
 
 }  // namespace auto_aim

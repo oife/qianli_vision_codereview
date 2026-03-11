@@ -20,6 +20,7 @@ namespace auto_aim
 BackendBase::BackendBase(const std::string & config_path) : config_path_(config_path)
 {
   yaml_ = YAML::LoadFile(config_path);
+  device_ = yaml_["device"].as<std::string>("CPU");
 }
 
 bool BackendBase::standarlize(const cv::Mat & img, cv::Mat & target, double & scale)

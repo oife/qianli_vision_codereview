@@ -9,10 +9,7 @@
 
 namespace auto_aim
 {
-ORTBackend::ORTBackend(const std::string & config_path) : BackendBase(config_path)
-{
-  device_ = yaml_["device"].as<std::string>();
-}
+ORTBackend::ORTBackend(const std::string & config_path) : BackendBase(config_path) {}
 
 bool ORTBackend::init(const std::string & model_path, const BackendConfig & model_config)
 {

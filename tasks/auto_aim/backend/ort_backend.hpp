@@ -27,14 +27,13 @@ private:
   Ort::Session session_{nullptr};
   std::string input_name_;
   std::string output_name_;
-  std::string device_;
-};
 
-class ORTCtx : public BackendCtx
-{
-private:
-  std::vector<Ort::Value> output_tensors_;
-  friend class ORTBackend;
+  class ORTCtx : public BackendCtx
+  {
+  private:
+    std::vector<Ort::Value> output_tensors_;
+    friend class ORTBackend;
+  };
 };
 }  // namespace auto_aim
 

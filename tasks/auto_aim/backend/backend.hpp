@@ -8,8 +8,8 @@
 #include <vector>
 
 // TODO: Just for debug, remember to remove it.
-// #define TENSORRT_AVAILABLE
-#define OPENVINO_AVAILABLE
+#define TENSORRT_AVAILABLE
+// #define OPENVINO_AVAILABLE
 // #define ORT_AVAILABLE
 
 namespace auto_aim
@@ -93,6 +93,7 @@ public:
 protected:
   BackendConfig model_config_;
   std::string config_path_;
+  std::string device_;
   YAML::Node yaml_;
 };
 
