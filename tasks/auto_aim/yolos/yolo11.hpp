@@ -7,9 +7,9 @@
 #include <vector>
 
 #include "tasks/auto_aim/armor/armor.hpp"
-#include "tasks/auto_aim/backend/backend.hpp"
 #include "tasks/auto_aim/detector/detector.hpp"
 #include "tasks/auto_aim/yolos/yolo.hpp"
+#include "tasks/backend/backend.hpp"
 
 namespace auto_aim
 {
