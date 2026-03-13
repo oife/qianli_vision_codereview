@@ -48,8 +48,10 @@ public:
   ~TensorRTBackend() override;
 
   bool init(const std::string & model_path, const BackendConfig & model_config) override;
-  std::unique_ptr<BackendCtx> create_ctx() override;
   bool infer(const cv::Mat & input, cv::Mat & output, BackendCtx * ctx) override;
+  void infer_async(const cv::Mat & input, BackendCtx * ctx) override;
+  void wait_for_result(cv::Mat & output, BackendCtx * ctx) override;
+  std::unique_ptr<BackendCtx> create_ctx() override;
   std::string get_name() const override;
 
 private:

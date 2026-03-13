@@ -49,9 +49,6 @@ void TensorRTBackend::Logger::log(Severity severity, nvinfer1::AsciiChar const *
     case Severity::kINFO:
       tools::logger()->info("[TensorRT] {}", msg);
       break;
-    case Severity::kVERBOSE:
-      tools::logger()->debug("[TensorRT] {}", msg);
-      break;
     default:
       break;
   }
