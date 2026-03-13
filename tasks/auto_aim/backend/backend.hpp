@@ -20,7 +20,7 @@ struct BackendConfig
   int input_channels{3};
   cv::Scalar padding_color{0, 0, 0};
   bool preprocess{true};
-  bool throughout_priority{true};
+  bool throughput_priority{false};
 };
 
 class BackendCtx
@@ -28,6 +28,7 @@ class BackendCtx
 public:
   BackendCtx() = default;
   virtual ~BackendCtx() = default;
+  double scale;
 };
 
 /**
@@ -92,17 +93,15 @@ public:
    * @brief 完整执行预处理到推理的全流程
    * @param img 输入图像
    * @param target 输出图像
-   * @param scale 返回的缩放比例
    */
-  bool execute(const cv::Mat & img, cv::Mat & target, double & scale, BackendCtx * ctx);
+  bool execute(const cv::Mat & img, cv::Mat & target, BackendCtx * ctx);
 
   /**
    * @brief 执行预处理，并创建异步推理任务
    * @param img 输入图像
    * @param target 输出图像
-   * @param scale 返回的缩放比例
    */
-  void execute_async(const cv::Mat & img, double & scale, BackendCtx * ctx);
+  void execute_async(const cv::Mat & img, BackendCtx * ctx);
 
   /**
    * @brief 获取模型配置
@@ -174,8 +173,6 @@ public:
    * @brief 预处理图像
    * @param img 输入图像
    * @param scale 返回的缩放比例
-   * @param pad_top 返回的上方填充
-   * @param pad_left 返回的左方填充
    * @return 预处理后的图像
    */
   bool standarlize(const cv::Mat & img, cv::Mat & target, double & scale);
@@ -184,17 +181,15 @@ public:
    * @brief 完整执行预处理到推理的全流程
    * @param img 输入图像
    * @param target 输出图像
-   * @param scale 返回的缩放比例
    */
-  bool execute(const cv::Mat & img, cv::Mat & target, double & scale, BackendCtx * ctx);
+  bool execute(const cv::Mat & img, cv::Mat & target, BackendCtx * ctx);
 
   /**
    * @brief 执行预处理，并创建异步推理任务
    * @param img 输入图像
    * @param target 输出图像
-   * @param scale 返回的缩放比例
    */
-  void execute_async(const cv::Mat & img, double & scale, BackendCtx * ctx);
+  void execute_async(const cv::Mat & img, BackendCtx * ctx);
 
   /**
    * @brief 获取模型配置

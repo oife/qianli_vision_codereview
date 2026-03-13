@@ -40,8 +40,13 @@ bool OpenVINOBackend::init(const std::string & model_path, const BackendConfig &
       model = ppp.build();
     }
 
-    compiled_model_ = core_.compile_model(
-      model, device_, ov::hint::performance_mode(ov::hint::PerformanceMode::LATENCY));
+    if (model_config.throughput_priority) {
+      compiled_model_ = core_.compile_model(
+        model, device_, ov::hint::performance_mode(ov::hint::PerformanceMode::THROUGHPUT));
+    } else {
+      compiled_model_ = core_.compile_model(
+        model, device_, ov::hint::performance_mode(ov::hint::PerformanceMode::LATENCY));
+    }
     return true;
   } catch (const std::exception & e) {
     tools::logger()->error("OpenVINO初始化失败：{}", e.what());

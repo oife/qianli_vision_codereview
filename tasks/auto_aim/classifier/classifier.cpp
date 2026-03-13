@@ -12,6 +12,7 @@ Classifier::Classifier(const std::string & config_path) : backend_(config_path)
 
   BackendConfig config;
   config.input_size = cv::Size(32, 32);
+  config.input_channels = 1;
   config.preprocess = false;
 
   if (!backend_.init(model, config)) {
@@ -63,10 +64,9 @@ void Classifier::backend_classify(Armor & armor)
   cv::Mat gray;
   cv::cvtColor(armor.pattern, gray, cv::COLOR_BGR2GRAY);
 
-  double _;
   cv::Mat outputs;
   auto ctx = backend_.create_ctx();
-  backend_.execute(gray, outputs, _, ctx.get());
+  backend_.execute(gray, outputs, ctx.get());
 
   // Softmax
   float max = *std::max_element(outputs.begin<float>(), outputs.end<float>());

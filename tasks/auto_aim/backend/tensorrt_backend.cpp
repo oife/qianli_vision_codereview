@@ -165,13 +165,13 @@ bool TensorRTBackend::infer(const cv::Mat & input, cv::Mat & output, BackendCtx 
   }
 
   if (output_dims.nbDims == 1) {
-    output = cv::Mat(1, output_dims.d[0], CV_32F, trt_ctx->host_output_.data())
+    output = cv::Mat(1, output_dims.d[0], CV_32F, trt_ctx->host_output_.data());
   } else if (output_dims.nbDims == 2) {
-    output = cv::Mat(output_dims.d[0], output_dims.d[1], CV_32F, trt_ctx->host_output_.data())
+    output = cv::Mat(output_dims.d[0], output_dims.d[1], CV_32F, trt_ctx->host_output_.data());
   } else if (output_dims.nbDims >= 3) {
     int rows = output_dims.d[output_dims.nbDims - 2];
     int cols = output_dims.d[output_dims.nbDims - 1];
-    output = cv::Mat(rows, cols, CV_32F, trt_ctx->host_output_.data())
+    output = cv::Mat(rows, cols, CV_32F, trt_ctx->host_output_.data());
   } else {
     tools::logger()->error("Unexpected TensorRT output dimensions");
     return false;
@@ -206,7 +206,7 @@ void TensorRTBackend::wait_for_result(cv::Mat & output, BackendCtx * ctx)
   auto output_dims = trt_ctx->context_->getTensorShape(output_name_.c_str());
   int rows = output_dims.d[output_dims.nbDims - 2];
   int cols = output_dims.d[output_dims.nbDims - 1];
-  output = cv::Mat(rows, cols, CV_32F, trt_ctx->host_output_.data())
+  output = cv::Mat(rows, cols, CV_32F, trt_ctx->host_output_.data());
 }
 
 std::string TensorRTBackend::get_name() const { return "TensorRT"; }

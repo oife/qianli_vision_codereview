@@ -3,10 +3,10 @@
 
 #include <chrono>
 #include <opencv2/opencv.hpp>
-#include <openvino/openvino.hpp>
 #include <tuple>
 
 #include "tasks/auto_aim/armor/armor.hpp"
+#include "tasks/auto_aim/backend/backend.hpp"
 #include "tasks/auto_aim/yolos/yolo.hpp"
 #include "tasks/auto_aim/yolos/yolov5.hpp"
 #include "tools/logger/logger.hpp"
@@ -29,14 +29,11 @@ public:
   std::tuple<cv::Mat, std::list<Armor>, std::chrono::steady_clock::time_point> debug_pop();
 
 private:
-  ov::Core core_;
-  ov::CompiledModel compiled_model_;
-  std::string device_;
-  std::string yolo_name_;
+  Backend backend_;
   YOLO yolo_;
 
   tools::ThreadSafeQueue<
-    std::tuple<cv::Mat, std::chrono::steady_clock::time_point, ov::InferRequest>>
+    std::tuple<cv::Mat, std::chrono::steady_clock::time_point, std::unique_ptr<BackendCtx>>>
     queue_{16, [] { tools::logger()->debug("[MultiThreadDetector] queue is full!"); }};
 };
 

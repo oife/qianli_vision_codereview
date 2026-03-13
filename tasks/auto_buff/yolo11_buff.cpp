@@ -10,11 +10,11 @@ YOLO11_BUFF::YOLO11_BUFF(const std::string & config) : backend_(config)
   std::string model_path = yaml["model"].as<std::string>();
 
   auto_aim::BackendConfig backend_config;
-
   backend_config.input_size = cv::Size(640, 640);
- if (!backend_.init(model_path, backend_config)) {
+
+  if (!backend_.init(model_path, backend_config)) {
     throw std::runtime_error("Backend initializing failed");
- }
+  }
 }
 
 std::vector<YOLO11_BUFF::Object> YOLO11_BUFF::get_multicandidateboxes(cv::Mat & image)
@@ -23,19 +23,20 @@ std::vector<YOLO11_BUFF::Object> YOLO11_BUFF::get_multicandidateboxes(cv::Mat & 
 
   if (image.empty()) {
     tools::logger()->warn("Empty img!, camera drop!");
-    return std::vector<YOLO11_BUFF::Object> ();
+    return std::vector<YOLO11_BUFF::Object>();
   }
 
   cv::Mat bgr_img = image;
 
-  double factor;
   cv::Mat det_output;
   auto ctx = backend_.create_ctx();
-  backend_.execute(bgr_img, det_output, factor, ctx.get());
+  backend_.execute(bgr_img, det_output, ctx.get());
 
-  std::vector<cv::Rect> boxes;                            // 目标框
-  std::vector<float> confidences;                         // 置信度
-  std::vector<std::vector<float>> objects_keypoints;      // 关键点
+  double factor = ctx->scale;
+
+  std::vector<cv::Rect> boxes;                        // 目标框
+  std::vector<float> confidences;                     // 置信度
+  std::vector<std::vector<float>> objects_keypoints;  // 关键点
   // 输出格式是[15,8400], 每列代表一个框(即最多有8400个框), 前面4行分别是[cx, cy, ow, oh], 中间score, 最后5*2关键点(3代表每个关键点的信息, 包括[x, y, visibility],如果是2，则没有visibility)
   // 15 = 4 + 1 + NUM_POINTS * 2      56
   for (int i = 0; i < det_output.cols; ++i) {
@@ -124,10 +125,11 @@ std::vector<YOLO11_BUFF::Object> YOLO11_BUFF::get_onecandidatebox(cv::Mat & imag
 
   cv::Mat bgr_img = image;
 
-  double factor;
   cv::Mat det_output;
   auto ctx = backend_.create_ctx();
-  backend_.execute(bgr_img, det_output, factor, ctx.get());
+  backend_.execute(bgr_img, det_output, ctx.get());
+
+  double factor = ctx->scale;
 
   /// 寻找置信度最大的框
 
