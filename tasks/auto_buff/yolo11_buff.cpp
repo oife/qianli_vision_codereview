@@ -4,28 +4,22 @@ const double ConfidenceThreshold = 0.7f;
 const double IouThreshold = 0.4f;
 namespace auto_buff
 {
-YOLO11_BUFF::YOLO11_BUFF(const std::string & config)
+YOLO11_BUFF::YOLO11_BUFF(const std::string & config) : backend_(config)
 {
   auto yaml = YAML::LoadFile(config);
   std::string model_path = yaml["model"].as<std::string>();
-  model = core.read_model(model_path);
-  // printInputAndOutputsInfo(*model);  // 打印模型信息
-  /// 载入并编译模型
-  compiled_model = core.compile_model(model, "CPU");
-  /// 创建推理请求
-  infer_request = compiled_model.create_infer_request();
-  // 获取模型输入节点
-  input_tensor = infer_request.get_input_tensor();
-  input_tensor.set_shape({1, 3, 640, 640});
+
+  auto_aim::BackendConfig backend_config;
+
+  backend_config.input_size = cv::Size(640, 640);
+ if (!backend_.init(model_path, backend_config)) {
+    throw std::runtime_error("Backend initializing failed");
+ }
 }
 
 std::vector<YOLO11_BUFF::Object> YOLO11_BUFF::get_multicandidateboxes(cv::Mat & image)
 {
   const int64 start = cv::getTickCount();  // 设置模型输入
-
-  /// 预处理
-
-  // const float factor = fill_tensor_data_image(input_tensor, image);  // 填充图片到合适的input size
 
   if (image.empty()) {
     tools::logger()->warn("Empty img!, camera drop!");
@@ -34,31 +28,11 @@ std::vector<YOLO11_BUFF::Object> YOLO11_BUFF::get_multicandidateboxes(cv::Mat & 
 
   cv::Mat bgr_img = image;
 
-  auto x_scale = static_cast<double>(640) / bgr_img.rows;
-  auto y_scale = static_cast<double>(640) / bgr_img.cols;
-  auto scale = std::min(x_scale, y_scale);
-  auto h = static_cast<int>(bgr_img.rows * scale);
-  auto w = static_cast<int>(bgr_img.cols * scale);
+  double factor;
+  cv::Mat det_output;
+  auto ctx = backend_.create_ctx();
+  backend_.execute(bgr_img, det_output, factor, ctx.get());
 
-  double factor = scale;  
-
-  // preproces
-  auto input = cv::Mat(640, 640, CV_8UC3, cv::Scalar(0, 0, 0));
-  auto roi = cv::Rect(0, 0, w, h);
-  cv::resize(bgr_img, input(roi), {w, h});
-  ov::Tensor input_tensor(ov::element::u8, {1, 640, 640, 3}, input.data);
-
-  /// 执行推理计算
-  infer_request.infer();
-
-  /// 处理推理计算结果
-  const ov::Tensor output = infer_request.get_output_tensor();  // 获得推理结果
-  const ov::Shape output_shape = output.get_shape();
-  const float * output_buffer = output.data<const float>();
-  const int out_rows = output_shape[1];  // 获得"output"节点的rows 15
-  const int out_cols = output_shape[2];  // 获得"output"节点的cols 8400
-  const cv::Mat det_output(
-    out_rows, out_cols, CV_32F, (float *)output_buffer);  // output_buff类型转换
   std::vector<cv::Rect> boxes;                            // 目标框
   std::vector<float> confidences;                         // 置信度
   std::vector<std::vector<float>> objects_keypoints;      // 关键点
@@ -148,22 +122,12 @@ std::vector<YOLO11_BUFF::Object> YOLO11_BUFF::get_onecandidatebox(cv::Mat & imag
 {
   const int64 start = cv::getTickCount();  // 设置模型输入
 
-  /// 预处理
-  const float factor = fill_tensor_data_image(input_tensor, image);  // 填充图片到合适的input size
+  cv::Mat bgr_img = image;
 
-  /// 执行推理计算
-
-  infer_request.infer();
-
-  /// 处理推理计算结果  output 输出格式是[17,8400], 每列代表一个框(即最多有8400个框), 前面4行分别是[cx, cy, ow, oh], 中间score, 最后6*2关键点
-
-  const ov::Tensor output = infer_request.get_output_tensor();  // 获得推理结果
-  const ov::Shape output_shape = output.get_shape();
-  const float * output_buffer = output.data<const float>();
-  const int out_rows = output_shape[1];  // 获得"output"节点的rows 17
-  const int out_cols = output_shape[2];  // 获得"output"节点的cols 8400
-  const cv::Mat det_output(
-    out_rows, out_cols, CV_32F, (float *)output_buffer);  // output_buff类型转换
+  double factor;
+  cv::Mat det_output;
+  auto ctx = backend_.create_ctx();
+  backend_.execute(bgr_img, det_output, factor, ctx.get());
 
   /// 寻找置信度最大的框
 
@@ -228,86 +192,6 @@ std::vector<YOLO11_BUFF::Object> YOLO11_BUFF::get_onecandidatebox(cv::Mat & imag
     image, cv::format("FPS: %.2f", 1.0 / t), cv::Point(20, 40), cv::FONT_HERSHEY_PLAIN, 2.0,
     cv::Scalar(255, 0, 0), 2, 8);
   return object_result;
-}
-
-void YOLO11_BUFF::convert(
-  const cv::Mat & input, cv::Mat & output, const bool normalize, const bool BGR2RGB) const
-{
-  input.convertTo(output, CV_32F);
-  if (normalize) output = output / 255.0;  // 归一化到[0, 1]
-  if (BGR2RGB) cv::cvtColor(output, output, cv::COLOR_BGR2RGB);
-}
-
-float YOLO11_BUFF::fill_tensor_data_image(ov::Tensor & input_tensor, const cv::Mat & input_image) const
-{
-  /// letterbox变换: 不改变宽高比(aspect ratio), 将input_image缩放并放置到blob_image左上角
-  const ov::Shape tensor_shape = input_tensor.get_shape();
-  const size_t num_channels = tensor_shape[1];
-  const size_t height = tensor_shape[2];
-  const size_t width = tensor_shape[3];
-  // 缩放因子
-  const float scale = std::min(height / float(input_image.rows), width / float(input_image.cols));
-  const cv::Matx23f matrix{
-    scale, 0.0, 0.0, 0.0, scale, 0.0,
-  };
-  cv::Mat blob_image;
-  // 下面根据scale范围进行数据转换, 这只是为了提高一点速度(主要是提高了交换通道的速度)
-  // 如果不在意这点速度提升的可以固定一种做法(两个if分支随便一个都可以)
-  if (scale < 1.0f) {
-    // 要缩小, 那么先缩小再交换通道
-    cv::warpAffine(input_image, blob_image, matrix, cv::Size(width, height));
-    convert(blob_image, blob_image, true, true);
-  } else {
-    // 要放大, 那么先交换通道再放大
-    convert(input_image, blob_image, true, true);
-    cv::warpAffine(blob_image, blob_image, matrix, cv::Size(width, height));
-  }
-
-  /// 将图像数据填入input_tensor
-  float * const input_tensor_data = input_tensor.data<float>();
-  // 原有图片数据为 HWC格式，模型输入节点要求的为 CHW 格式
-  for (size_t c = 0; c < num_channels; c++) {
-    for (size_t h = 0; h < height; h++) {
-      for (size_t w = 0; w < width; w++) {
-        input_tensor_data[c * width * height + h * width + w] =
-          blob_image.at<cv::Vec<float, 3>>(h, w)[c];
-      }
-    }
-  }
-  return 1 / scale;
-}
-
-void YOLO11_BUFF::printInputAndOutputsInfo(const ov::Model & network)
-{
-  std::cout << "model name: " << network.get_friendly_name() << std::endl;
-
-  const std::vector<ov::Output<const ov::Node>> inputs = network.inputs();
-  for (const ov::Output<const ov::Node> & input : inputs) {
-    std::cout << "    inputs" << std::endl;
-
-    const std::string name = input.get_names().empty() ? "NONE" : input.get_any_name();
-    std::cout << "        input name: " << name << std::endl;
-
-    const ov::element::Type type = input.get_element_type();
-    std::cout << "        input type: " << type << std::endl;
-
-    const ov::Shape shape = input.get_shape();
-    std::cout << "        input shape: " << shape << std::endl;
-  }
-
-  const std::vector<ov::Output<const ov::Node>> outputs = network.outputs();
-  for (const ov::Output<const ov::Node> & output : outputs) {
-    std::cout << "    outputs" << std::endl;
-
-    const std::string name = output.get_names().empty() ? "NONE" : output.get_any_name();
-    std::cout << "        output name: " << name << std::endl;
-
-    const ov::element::Type type = output.get_element_type();
-    std::cout << "        output type: " << type << std::endl;
-
-    const ov::Shape shape = output.get_shape();
-    std::cout << "        output shape: " << shape << std::endl;
-  }
 }
 
 void YOLO11_BUFF::save(const std::string & programName, const cv::Mat & image)
