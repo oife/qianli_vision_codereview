@@ -3,13 +3,13 @@
 
 #include <list>
 #include <opencv2/opencv.hpp>
-#include <openvino/openvino.hpp>
 #include <string>
 #include <vector>
 
 #include "tasks/auto_aim/armor/armor.hpp"
 #include "tasks/auto_aim/detector/detector.hpp"
 #include "tasks/auto_aim/yolos/yolo.hpp"
+#include "backend/backend.hpp"
 
 namespace auto_aim
 {
