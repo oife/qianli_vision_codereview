@@ -20,6 +20,7 @@ struct BackendConfig
   int input_channels{3};
   cv::Scalar padding_color{0, 0, 0};
   bool preprocess{true};
+  bool throughout_priority{true};
 };
 
 class BackendCtx
@@ -60,8 +61,23 @@ public:
    * @brief 模型推理
    * @param input 输入图像（已完成预处理）
    * @param output 推理输出特征图
+   * @param ctx 推理上下文
    */
   virtual bool infer(const cv::Mat & input, cv::Mat & output, BackendCtx * ctx) = 0;
+
+  /**
+   * @brief 异步模型推理
+   * @param input 输入图像
+   * @param ctx 推理上下文
+   */
+  virtual void infer_async(const cv::Mat & input, BackendCtx * ctx) = 0;
+
+  /**
+   * @brief 获取异步推理结果
+   * @param output 推理输出特征图
+   * @param ctx 推理上下文
+   */
+  virtual void wait_for_result(cv::Mat & output, BackendCtx * ctx) = 0;
 
   /**
    * @brief 标准化图像
@@ -79,6 +95,14 @@ public:
    * @param scale 返回的缩放比例
    */
   bool execute(const cv::Mat & img, cv::Mat & target, double & scale, BackendCtx * ctx);
+
+  /**
+   * @brief 执行预处理，并创建异步推理任务
+   * @param img 输入图像
+   * @param target 输出图像
+   * @param scale 返回的缩放比例
+   */
+  void execute_async(const cv::Mat & img, double & scale, BackendCtx * ctx);
 
   /**
    * @brief 获取模型配置
@@ -123,7 +147,7 @@ public:
    * @brief 创建推理上下文
    * @return 后端推理上下文
    */
-  virtual std::unique_ptr<BackendCtx> create_ctx();
+  std::unique_ptr<BackendCtx> create_ctx();
 
   /**
    * @brief 模型推理
@@ -131,6 +155,20 @@ public:
    * @return 推理输出特征图
    */
   bool infer(const cv::Mat & input, cv::Mat & output, BackendCtx * ctx);
+
+  /**
+   * @brief 异步模型推理
+   * @param input 输入图像
+   * @param ctx 推理上下文
+   */
+  void infer_async(const cv::Mat & input, BackendCtx * ctx);
+
+  /**
+   * @brief 获取异步推理结果
+   * @param output 推理输出特征图
+   * @param ctx 推理上下文
+   */
+  void wait_for_result(cv::Mat & output, BackendCtx * ctx);
 
   /**
    * @brief 预处理图像
@@ -149,6 +187,14 @@ public:
    * @param scale 返回的缩放比例
    */
   bool execute(const cv::Mat & img, cv::Mat & target, double & scale, BackendCtx * ctx);
+
+  /**
+   * @brief 执行预处理，并创建异步推理任务
+   * @param img 输入图像
+   * @param target 输出图像
+   * @param scale 返回的缩放比例
+   */
+  void execute_async(const cv::Mat & img, double & scale, BackendCtx * ctx);
 
   /**
    * @brief 获取模型配置

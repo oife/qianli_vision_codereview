@@ -47,6 +47,13 @@ bool BackendBase::execute(const cv::Mat & img, cv::Mat & target, double & scale,
   return true;
 }
 
+void BackendBase::execute_async(const cv::Mat & img, double & scale, BackendCtx * ctx)
+{
+  cv::Mat input;
+  standarlize(img, input, scale);
+  infer_async(img, ctx);
+}
+
 Backend::Backend(const std::string config_path) { backend_allocate(config_path); }
 
 bool Backend::init(const std::string & model_path, const BackendConfig & model_config)
@@ -61,6 +68,16 @@ bool Backend::infer(const cv::Mat & input, cv::Mat & output, BackendCtx * ctx)
   return backend_->infer(input, output, ctx);
 }
 
+void Backend::infer_async(const cv::Mat & input, BackendCtx * ctx)
+{
+  backend_->infer_async(input, ctx);
+}
+
+void Backend::wait_for_result(cv::Mat & output, BackendCtx * ctx)
+{
+  backend_->wait_for_result(output, ctx);
+}
+
 bool Backend::standarlize(const cv::Mat & img, cv::Mat & target, double & scale)
 {
   return backend_->standarlize(img, target, scale);
@@ -69,6 +86,11 @@ bool Backend::standarlize(const cv::Mat & img, cv::Mat & target, double & scale)
 bool Backend::execute(const cv::Mat & img, cv::Mat & target, double & scale, BackendCtx * ctx)
 {
   return backend_->execute(img, target, scale, ctx);
+}
+
+void Backend::execute_async(const cv::Mat & img, double & scale, BackendCtx * ctx)
+{
+  return backend_->execute_async(img, scale, ctx);
 }
 
 const BackendConfig & Backend::get_model_config() const { return backend_->get_model_config(); }
