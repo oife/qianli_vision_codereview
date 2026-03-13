@@ -165,19 +165,48 @@ bool TensorRTBackend::infer(const cv::Mat & input, cv::Mat & output, BackendCtx 
   }
 
   if (output_dims.nbDims == 1) {
-    output = cv::Mat(1, output_dims.d[0], CV_32F, trt_ctx->host_output_.data()).clone();
+    output = cv::Mat(1, output_dims.d[0], CV_32F, trt_ctx->host_output_.data())
   } else if (output_dims.nbDims == 2) {
-    output =
-      cv::Mat(output_dims.d[0], output_dims.d[1], CV_32F, trt_ctx->host_output_.data()).clone();
+    output = cv::Mat(output_dims.d[0], output_dims.d[1], CV_32F, trt_ctx->host_output_.data())
   } else if (output_dims.nbDims >= 3) {
     int rows = output_dims.d[output_dims.nbDims - 2];
     int cols = output_dims.d[output_dims.nbDims - 1];
-    output = cv::Mat(rows, cols, CV_32F, trt_ctx->host_output_.data()).clone();
+    output = cv::Mat(rows, cols, CV_32F, trt_ctx->host_output_.data())
   } else {
     tools::logger()->error("Unexpected TensorRT output dimensions");
     return false;
   }
   return true;
+}
+
+void TensorRTBackend::infer_async(const cv::Mat & input, BackendCtx * ctx)
+{
+  auto trt_ctx = static_cast<TensorRTCtx *>(ctx);
+  if (!ensure_context_ready(*trt_ctx)) return;
+
+  std::vector<float> host_input;
+  if (!prepare_input(input, host_input)) return;
+
+  cudaMemcpyAsync(
+    trt_ctx->input_device_, host_input.data(), trt_ctx->input_bytes_, cudaMemcpyHostToDevice,
+    trt_ctx->stream_);
+  trt_ctx->context_->enqueueV3(trt_ctx->stream_);
+
+  cudaMemcpyAsync(
+    trt_ctx->host_output_.data(), trt_ctx->output_device_, trt_ctx->output_bytes_,
+    cudaMemcpyDeviceToHost, trt_ctx->stream_);
+}
+
+void TensorRTBackend::wait_for_result(cv::Mat & output, BackendCtx * ctx)
+{
+  auto * trt_ctx = static_cast<TensorRTCtx *>(ctx);
+
+  cudaStreamSynchronize(trt_ctx->stream_);
+
+  auto output_dims = trt_ctx->context_->getTensorShape(output_name_.c_str());
+  int rows = output_dims.d[output_dims.nbDims - 2];
+  int cols = output_dims.d[output_dims.nbDims - 1];
+  output = cv::Mat(rows, cols, CV_32F, trt_ctx->host_output_.data())
 }
 
 std::string TensorRTBackend::get_name() const { return "TensorRT"; }
