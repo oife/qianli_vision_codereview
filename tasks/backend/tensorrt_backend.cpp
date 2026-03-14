@@ -88,13 +88,7 @@ bool TensorRTBackend::init(const std::string & model_path, const BackendConfig &
 std::unique_ptr<BackendCtx> TensorRTBackend::create_ctx()
 {
   auto ctx = std::make_unique<TensorRTCtx>();
-  if (!engine_) return ctx;
-
-  ctx->context_.reset(engine_->createExecutionContext());
-  if (!ctx->context_) {
-    tools::logger()->error("Failed to create TensorRT execution context");
-    return ctx;
-  }
+  ctx->context_ = ex_ctx_.get();
   return ctx;
 }
 
@@ -223,16 +217,8 @@ bool TensorRTBackend::load_engine(const std::string & engine_path)
   if (engine_data.empty()) return false;
 
   runtime_.reset(nvinfer1::createInferRuntime(logger_));
-  if (!runtime_) {
-    tools::logger()->error("Failed to create TensorRT runtime");
-    return false;
-  }
-
   engine_.reset(runtime_->deserializeCudaEngine(engine_data.data(), engine_data.size()));
-  if (!engine_) {
-    tools::logger()->warn("Failed to deserialize cached TensorRT engine: {}", engine_path);
-    return false;
-  }
+  ex_ctx_.reset(engine_->createExecutionContext());
 
   tools::logger()->info("Loaded TensorRT engine: {}", engine_path);
   return true;

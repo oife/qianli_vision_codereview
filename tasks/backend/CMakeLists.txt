@@ -122,6 +122,7 @@ else()
 endif()
 
 if (CUDAToolkit_FOUND AND TensorRT_FOUND)
+    message(STATUS "TensorRT found")
     target_include_directories(backend PUBLIC ${TENSORRT_INCLUDE_DIRS})
     target_link_libraries(backend
         ${TENSORRT_LIBRARIES}

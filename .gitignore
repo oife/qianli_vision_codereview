@@ -42,3 +42,6 @@ docs/
 *.mp4
 *.avi
 *.mkv
+
+# TensorRT模型
+*.engine

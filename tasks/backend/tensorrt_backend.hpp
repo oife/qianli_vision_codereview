@@ -29,7 +29,7 @@ private:
     }
   };
 
-  std::unique_ptr<nvinfer1::IExecutionContext, InferDeleter> context_;
+  nvinfer1::IExecutionContext * context_;
   void * input_device_{nullptr};
   void * output_device_{nullptr};
   size_t input_bytes_{0};
@@ -81,6 +81,7 @@ private:
   Logger logger_;
   std::unique_ptr<nvinfer1::IRuntime, InferDeleter> runtime_;
   std::unique_ptr<nvinfer1::ICudaEngine, InferDeleter> engine_;
+  std::unique_ptr<nvinfer1::IExecutionContext, InferDeleter> ex_ctx_;
   std::string input_name_;
   std::string output_name_;
   bool use_fp16_{true};
