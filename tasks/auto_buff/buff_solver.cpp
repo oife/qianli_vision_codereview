@@ -34,6 +34,10 @@ Solver::Solver(const std::string & config_path) : R_gimbal2world_(Eigen::Matrix3
   R_camera2gimbal_ = Eigen::Matrix<double, 3, 3, Eigen::RowMajor>(R_camera2gimbal_data.data());
   t_camera2gimbal_ = Eigen::Matrix<double, 3, 1>(t_camera2gimbal_data.data());
 
+  if (yaml["q_inverted"] && yaml["q_inverted"].as<bool>()) {
+    q_inverted_ = true;
+  }
+
   auto camera_matrix_data = yaml["camera_matrix"].as<std::vector<double>>();
   auto distort_coeffs_data = yaml["distort_coeffs"].as<std::vector<double>>();
   Eigen::Matrix<double, 3, 3, Eigen::RowMajor> camera_matrix(camera_matrix_data.data());
@@ -49,6 +53,7 @@ Eigen::Matrix3d Solver::R_gimbal2world() const { return R_gimbal2world_; }
 void Solver::set_R_gimbal2world(const Eigen::Quaterniond & q)
 {
   Eigen::Matrix3d R_imubody2imuabs = q.toRotationMatrix();
+  if (q_inverted_) R_imubody2imuabs.transposeInPlace();
   R_gimbal2world_ = R_gimbal2imubody_.transpose() * R_imubody2imuabs * R_gimbal2imubody_;
 }
 

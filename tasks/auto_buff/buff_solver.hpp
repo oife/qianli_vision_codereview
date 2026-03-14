@@ -34,6 +34,7 @@ public:
 private:
   cv::Mat camera_matrix_;
   cv::Mat distort_coeffs_;
+  bool q_inverted_ = false;
   Eigen::Matrix3d R_gimbal2imubody_;
   Eigen::Matrix3d R_camera2gimbal_;
   Eigen::Vector3d t_camera2gimbal_;

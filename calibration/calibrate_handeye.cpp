@@ -63,6 +63,9 @@ void load(
 
     // 计算云台的欧拉角
     Eigen::Matrix3d R_imubody2imuabs = q.toRotationMatrix();
+    if (yaml["q_inverted"] && yaml["q_inverted"].as<bool>()) {
+      R_imubody2imuabs.transposeInPlace();
+    }
     Eigen::Matrix3d R_gimbal2world =
       R_gimbal2imubody.transpose() * R_imubody2imuabs * R_gimbal2imubody;
     Eigen::Vector3d ypr = tools::eulers(R_gimbal2world, 2, 1, 0) * 57.3;  // degree
