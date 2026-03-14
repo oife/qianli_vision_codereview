@@ -9,10 +9,7 @@
 
 namespace auto_aim
 {
-ORTBackend::ORTBackend(const std::string & config_path) : BackendBase(config_path)
-{
-  device_ = yaml_["device"].as<std::string>();
-}
+ORTBackend::ORTBackend(const std::string & config_path) : BackendBase(config_path) {}
 
 bool ORTBackend::init(const std::string & model_path, const BackendConfig & model_config)
 {
@@ -45,21 +42,26 @@ bool ORTBackend::infer(const cv::Mat & input, cv::Mat & output, BackendCtx * ctx
     auto ort_ctx = static_cast<ORTCtx *>(ctx);
 
     cv::Mat processed_input;
-    preprocess(input, processed_input);
+    if (model_config_.preprocess) {
+      preprocess(input, processed_input);
+    } else {
+      processed_input = input;
+    }
 
     std::vector<int64_t> input_shape = {
-      1, 3, model_config_.input_size.height, model_config_.input_size.width};
+      1, model_config_.input_channels, model_config_.input_size.height,
+      model_config_.input_size.width};
 
     auto memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
-    auto input_tensor = Ort::Value::CreateTensor<float>(
+    ort_ctx->input_tensor_ = Ort::Value::CreateTensor<float>(
       memory_info, processed_input.ptr<float>(),
       processed_input.total() * processed_input.channels(), input_shape.data(), input_shape.size());
 
     const char * input_name_c = input_name_.c_str();
     const char * output_name_c = output_name_.c_str();
 
-    ort_ctx->output_tensors_ =
-      session_.Run(Ort::RunOptions{nullptr}, &input_name_c, &input_tensor, 1, &output_name_c, 1);
+    ort_ctx->output_tensors_ = session_.Run(
+      Ort::RunOptions{nullptr}, &input_name_c, &ort_ctx->input_tensor_, 1, &output_name_c, 1);
 
     float * output_data = ort_ctx->output_tensors_[0].GetTensorMutableData<float>();
     auto output_shape = ort_ctx->output_tensors_[0].GetTensorTypeAndShapeInfo().GetShape();
@@ -70,6 +72,50 @@ bool ORTBackend::infer(const cv::Mat & input, cv::Mat & output, BackendCtx * ctx
     tools::logger()->error("ONNX Runtime推理失败：{}", e.what());
     return false;
   }
+}
+
+void ORTBackend::infer_async(const cv::Mat & input, BackendCtx * ctx)
+{
+  auto ort_ctx = static_cast<ORTCtx *>(ctx);
+
+  cv::Mat processed_input;
+  if (model_config_.preprocess) {
+    preprocess(input, processed_input);
+  } else {
+    processed_input = input;
+  }
+
+  std::vector<int64_t> input_shape = {
+    1, model_config_.input_channels, model_config_.input_size.height,
+    model_config_.input_size.width};
+
+  auto memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
+  ort_ctx->input_tensor_ = Ort::Value::CreateTensor<float>(
+    memory_info, processed_input.ptr<float>(), processed_input.total() * processed_input.channels(),
+    input_shape.data(), input_shape.size());
+
+  const char * input_name_c = input_name_.c_str();
+  const char * output_name_c = output_name_.c_str();
+
+  Ort::RunOptions run_options;
+  run_options.SetRunLogVerbosityLevel(1);
+
+  ort_ctx->async_result_ =
+    std::async(std::launch::async, [this, input_name_c, output_name_c, ort_ctx]() {
+      return session_.Run(
+        Ort::RunOptions{nullptr}, &input_name_c, &ort_ctx->input_tensor_, 1, &output_name_c, 1);
+    });
+}
+
+void ORTBackend::wait_for_result(cv::Mat & output, BackendCtx * ctx)
+{
+  auto ort_ctx = static_cast<ORTCtx *>(ctx);
+  ort_ctx->output_tensors_ = ort_ctx->async_result_.get();
+
+  float * output_data = ort_ctx->output_tensors_[0].GetTensorMutableData<float>();
+  auto output_shape = ort_ctx->output_tensors_[0].GetTensorTypeAndShapeInfo().GetShape();
+
+  output = cv::Mat(output_shape[1], output_shape[2], CV_32F, output_data);
 }
 
 void ORTBackend::preprocess(const cv::Mat & src, cv::Mat & dist)

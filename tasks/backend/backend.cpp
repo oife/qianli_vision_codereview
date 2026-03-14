@@ -20,6 +20,7 @@ namespace auto_aim
 BackendBase::BackendBase(const std::string & config_path) : config_path_(config_path)
 {
   yaml_ = YAML::LoadFile(config_path);
+  device_ = yaml_["device"].as<std::string>("CPU");
 }
 
 bool BackendBase::standarlize(const cv::Mat & img, cv::Mat & target, double & scale)
@@ -38,12 +39,19 @@ bool BackendBase::standarlize(const cv::Mat & img, cv::Mat & target, double & sc
   return (h != 0 && w != 0);
 }
 
-bool BackendBase::execute(const cv::Mat & img, cv::Mat & target, double & scale, BackendCtx * ctx)
+bool BackendBase::execute(const cv::Mat & img, cv::Mat & target, BackendCtx * ctx)
 {
   cv::Mat input;
-  if (!standarlize(img, input, scale)) return false;
+  if (!standarlize(img, input, ctx->scale)) return false;
   if (!infer(input, target, ctx)) return false;
   return true;
+}
+
+void BackendBase::execute_async(const cv::Mat & img, BackendCtx * ctx)
+{
+  cv::Mat input;
+  standarlize(img, input, ctx->scale);
+  infer_async(img, ctx);
 }
 
 Backend::Backend(const std::string config_path) { backend_allocate(config_path); }
@@ -60,14 +68,29 @@ bool Backend::infer(const cv::Mat & input, cv::Mat & output, BackendCtx * ctx)
   return backend_->infer(input, output, ctx);
 }
 
+void Backend::infer_async(const cv::Mat & input, BackendCtx * ctx)
+{
+  backend_->infer_async(input, ctx);
+}
+
+void Backend::wait_for_result(cv::Mat & output, BackendCtx * ctx)
+{
+  backend_->wait_for_result(output, ctx);
+}
+
 bool Backend::standarlize(const cv::Mat & img, cv::Mat & target, double & scale)
 {
   return backend_->standarlize(img, target, scale);
 }
 
-bool Backend::execute(const cv::Mat & img, cv::Mat & target, double & scale, BackendCtx * ctx)
+bool Backend::execute(const cv::Mat & img, cv::Mat & target, BackendCtx * ctx)
 {
-  return backend_->execute(img, target, scale, ctx);
+  return backend_->execute(img, target, ctx);
+}
+
+void Backend::execute_async(const cv::Mat & img, BackendCtx * ctx)
+{
+  return backend_->execute_async(img, ctx);
 }
 
 const BackendConfig & Backend::get_model_config() const { return backend_->get_model_config(); }

@@ -2,14 +2,14 @@
 enemy_color: "blue"
 
 #####-----神经网络参数-----#####
-backend: openvino
+backend: ort
 yolo_name: yolov5
 classify_model: assets/tiny_resnet.onnx
 yolo26n_model_path: assets/best_fp32.onnx
 yolo11_model_path: assets/yolo11.xml
 yolov8_model_path: assets/yolov8.xml
 yolov5_model_path: assets/yolov5.onnx
-device: GPU
+device: CPU
 min_confidence: 0.8
 use_traditional: false
 

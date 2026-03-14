@@ -9,7 +9,7 @@
 
 // TODO: Just for debug, remember to remove it.
 // #define TENSORRT_AVAILABLE
-#define OPENVINO_AVAILABLE
+// #define OPENVINO_AVAILABLE
 // #define ORT_AVAILABLE
 
 namespace auto_aim
@@ -17,9 +17,10 @@ namespace auto_aim
 struct BackendConfig
 {
   cv::Size input_size{640, 640};
-  int input_type{CV_8UC3};
+  int input_channels{3};
   cv::Scalar padding_color{0, 0, 0};
   bool preprocess{true};
+  bool throughput_priority{false};
 };
 
 class BackendCtx
@@ -27,6 +28,7 @@ class BackendCtx
 public:
   BackendCtx() = default;
   virtual ~BackendCtx() = default;
+  double scale;
 };
 
 /**
@@ -60,8 +62,23 @@ public:
    * @brief 模型推理
    * @param input 输入图像（已完成预处理）
    * @param output 推理输出特征图
+   * @param ctx 推理上下文
    */
   virtual bool infer(const cv::Mat & input, cv::Mat & output, BackendCtx * ctx) = 0;
+
+  /**
+   * @brief 异步模型推理
+   * @param input 输入图像
+   * @param ctx 推理上下文
+   */
+  virtual void infer_async(const cv::Mat & input, BackendCtx * ctx) = 0;
+
+  /**
+   * @brief 获取异步推理结果
+   * @param output 推理输出特征图
+   * @param ctx 推理上下文
+   */
+  virtual void wait_for_result(cv::Mat & output, BackendCtx * ctx) = 0;
 
   /**
    * @brief 标准化图像
@@ -76,9 +93,15 @@ public:
    * @brief 完整执行预处理到推理的全流程
    * @param img 输入图像
    * @param target 输出图像
-   * @param scale 返回的缩放比例
    */
-  bool execute(const cv::Mat & img, cv::Mat & target, double & scale, BackendCtx * ctx);
+  bool execute(const cv::Mat & img, cv::Mat & target, BackendCtx * ctx);
+
+  /**
+   * @brief 执行预处理，并创建异步推理任务
+   * @param img 输入图像
+   * @param target 输出图像
+   */
+  void execute_async(const cv::Mat & img, BackendCtx * ctx);
 
   /**
    * @brief 获取模型配置
@@ -93,6 +116,7 @@ public:
 protected:
   BackendConfig model_config_;
   std::string config_path_;
+  std::string device_;
   YAML::Node yaml_;
 };
 
@@ -122,7 +146,7 @@ public:
    * @brief 创建推理上下文
    * @return 后端推理上下文
    */
-  virtual std::unique_ptr<BackendCtx> create_ctx();
+  std::unique_ptr<BackendCtx> create_ctx();
 
   /**
    * @brief 模型推理
@@ -132,11 +156,23 @@ public:
   bool infer(const cv::Mat & input, cv::Mat & output, BackendCtx * ctx);
 
   /**
+   * @brief 异步模型推理
+   * @param input 输入图像
+   * @param ctx 推理上下文
+   */
+  void infer_async(const cv::Mat & input, BackendCtx * ctx);
+
+  /**
+   * @brief 获取异步推理结果
+   * @param output 推理输出特征图
+   * @param ctx 推理上下文
+   */
+  void wait_for_result(cv::Mat & output, BackendCtx * ctx);
+
+  /**
    * @brief 预处理图像
    * @param img 输入图像
    * @param scale 返回的缩放比例
-   * @param pad_top 返回的上方填充
-   * @param pad_left 返回的左方填充
    * @return 预处理后的图像
    */
   bool standarlize(const cv::Mat & img, cv::Mat & target, double & scale);
@@ -145,9 +181,15 @@ public:
    * @brief 完整执行预处理到推理的全流程
    * @param img 输入图像
    * @param target 输出图像
-   * @param scale 返回的缩放比例
    */
-  bool execute(const cv::Mat & img, cv::Mat & target, double & scale, BackendCtx * ctx);
+  bool execute(const cv::Mat & img, cv::Mat & target, BackendCtx * ctx);
+
+  /**
+   * @brief 执行预处理，并创建异步推理任务
+   * @param img 输入图像
+   * @param target 输出图像
+   */
+  void execute_async(const cv::Mat & img, BackendCtx * ctx);
 
   /**
    * @brief 获取模型配置

@@ -8,10 +8,7 @@
 
 namespace auto_aim
 {
-OpenVINOBackend::OpenVINOBackend(const std::string & config_path) : BackendBase(config_path)
-{
-  device_ = yaml_["device"].as<std::string>("CPU");
-}
+OpenVINOBackend::OpenVINOBackend(const std::string & config_path) : BackendBase(config_path) {}
 
 bool OpenVINOBackend::init(const std::string & model_path, const BackendConfig & model_config)
 {
@@ -27,8 +24,9 @@ bool OpenVINOBackend::init(const std::string & model_path, const BackendConfig &
       input.tensor()
         .set_element_type(ov::element::u8)
         .set_shape(
-          {1, static_cast<long>(model_config.input_size.height),
-           static_cast<long>(model_config.input_size.width), 3})
+          {1, static_cast<long>(model_config_.input_size.height),
+           static_cast<long>(model_config_.input_size.width),
+           static_cast<long>(model_config_.input_channels)})
         .set_layout("NHWC")
         .set_color_format(ov::preprocess::ColorFormat::BGR);
 
@@ -42,8 +40,13 @@ bool OpenVINOBackend::init(const std::string & model_path, const BackendConfig &
       model = ppp.build();
     }
 
-    compiled_model_ = core_.compile_model(
-      model, device_, ov::hint::performance_mode(ov::hint::PerformanceMode::LATENCY));
+    if (model_config.throughput_priority) {
+      compiled_model_ = core_.compile_model(
+        model, device_, ov::hint::performance_mode(ov::hint::PerformanceMode::THROUGHPUT));
+    } else {
+      compiled_model_ = core_.compile_model(
+        model, device_, ov::hint::performance_mode(ov::hint::PerformanceMode::LATENCY));
+    }
     return true;
   } catch (const std::exception & e) {
     tools::logger()->error("OpenVINO初始化失败：{}", e.what());
@@ -60,7 +63,8 @@ bool OpenVINOBackend::infer(const cv::Mat & input, cv::Mat & output, BackendCtx 
     ov::Tensor input_tensor(
       ov::element::u8,
       {1, static_cast<size_t>(model_config_.input_size.height),
-       static_cast<size_t>(model_config_.input_size.width), 3},
+       static_cast<size_t>(model_config_.input_size.width),
+       static_cast<size_t>(model_config_.input_channels)},
       const_cast<uchar *>(input.data));
 
     ov_ctx->infer_request_ = compiled_model_.create_infer_request();
@@ -76,6 +80,33 @@ bool OpenVINOBackend::infer(const cv::Mat & input, cv::Mat & output, BackendCtx 
     tools::logger()->error("OpenVINO推理失败：{}", e.what());
     return false;
   }
+}
+
+void OpenVINOBackend::infer_async(const cv::Mat & input, BackendCtx * ctx)
+{
+  auto ov_ctx = static_cast<OpenVINOCtx *>(ctx);
+
+  ov::Tensor input_tensor(
+    ov::element::u8,
+    {1, static_cast<size_t>(model_config_.input_size.height),
+     static_cast<size_t>(model_config_.input_size.width),
+     static_cast<size_t>(model_config_.input_channels)},
+    const_cast<uchar *>(input.data));
+
+  ov_ctx->infer_request_ = compiled_model_.create_infer_request();
+  ov_ctx->infer_request_.set_input_tensor(input_tensor);
+  ov_ctx->infer_request_.start_async();
+}
+
+void OpenVINOBackend::wait_for_result(cv::Mat & output, BackendCtx * ctx)
+{
+  auto ov_ctx = static_cast<OpenVINOCtx *>(ctx);
+
+  ov_ctx->infer_request_.wait();
+  auto output_tensor = ov_ctx->infer_request_.get_output_tensor();
+  auto output_shape = output_tensor.get_shape();
+
+  output = cv::Mat(output_shape[1], output_shape[2], CV_32F, output_tensor.data());
 }
 
 std::unique_ptr<BackendCtx> OpenVINOBackend::create_ctx()
