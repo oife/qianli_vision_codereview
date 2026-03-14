@@ -34,6 +34,9 @@ private:
 
   class ORTCtx : public BackendCtx
   {
+  public:
+    ORTCtx() : input_tensor_(nullptr) {}
+
   private:
     Ort::Value input_tensor_;
     std::vector<Ort::Value> output_tensors_;

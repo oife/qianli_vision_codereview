@@ -2,7 +2,7 @@
 enemy_color: "blue"
 
 #####-----神经网络参数-----#####
-backend: tensorrt
+backend: ort
 yolo_name: yolov5
 classify_model: assets/tiny_resnet.onnx
 yolo26n_model_path: assets/best_fp32.onnx
