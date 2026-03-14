@@ -27,13 +27,10 @@ std::string to_lower(std::string value)
 }
 }  // namespace
 
-TensorRTCtx::TensorRTCtx() { cudaStreamCreate(&stream_); }
-
 TensorRTCtx::~TensorRTCtx()
 {
   if (input_device_) cudaFree(input_device_);
   if (output_device_) cudaFree(output_device_);
-  if (stream_) cudaStreamDestroy(stream_);
 }
 
 void TensorRTBackend::Logger::log(Severity severity, nvinfer1::AsciiChar const * msg) noexcept
@@ -61,7 +58,10 @@ TensorRTBackend::TensorRTBackend(const std::string & config_path) : BackendBase(
   workspace_size_ = yaml_["trt_workspace_size"].as<size_t>(1ULL << 30);
 }
 
-TensorRTBackend::~TensorRTBackend() = default;
+TensorRTBackend::~TensorRTBackend()
+{
+  if (stream_) cudaStreamDestroy(stream_);
+}
 
 bool TensorRTBackend::init(const std::string & model_path, const BackendConfig & model_config)
 {
@@ -81,6 +81,8 @@ bool TensorRTBackend::init(const std::string & model_path, const BackendConfig &
     if (!load_engine(engine_path)) return false;
   }
 
+  cudaStreamCreate(&stream_);
+
   setup_tensor_names();
   return !input_name_.empty() && !output_name_.empty();
 }
@@ -88,7 +90,6 @@ bool TensorRTBackend::init(const std::string & model_path, const BackendConfig &
 std::unique_ptr<BackendCtx> TensorRTBackend::create_ctx()
 {
   auto ctx = std::make_unique<TensorRTCtx>();
-  ctx->context_ = ex_ctx_.get();
   return ctx;
 }
 
@@ -97,7 +98,7 @@ bool TensorRTBackend::infer(const cv::Mat & input, cv::Mat & output, BackendCtx 
   if (input.empty() || ctx == nullptr) return false;
 
   auto * trt_ctx = static_cast<TensorRTCtx *>(ctx);
-  if (!trt_ctx->context_) {
+  if (!ex_ctx_) {
     tools::logger()->error("TensorRT context is not initialized");
     return false;
   }
@@ -109,17 +110,17 @@ bool TensorRTBackend::infer(const cv::Mat & input, cv::Mat & output, BackendCtx 
   if (
     cudaMemcpyAsync(
       trt_ctx->input_device_, host_input.data(), trt_ctx->input_bytes_, cudaMemcpyHostToDevice,
-      trt_ctx->stream_) != cudaSuccess) {
+      stream_) != cudaSuccess) {
     tools::logger()->error("TensorRT input memcpy failed");
     return false;
   }
 
-  if (!trt_ctx->context_->enqueueV3(trt_ctx->stream_)) {
+  if (!ex_ctx_->enqueueV3(stream_)) {
     tools::logger()->error("TensorRT enqueueV3 failed");
     return false;
   }
 
-  auto output_dims = trt_ctx->context_->getTensorShape(output_name_.c_str());
+  auto output_dims = ex_ctx_->getTensorShape(output_name_.c_str());
   auto output_type = engine_->getTensorDataType(output_name_.c_str());
   size_t count = tensor_bytes(output_dims, output_type) / element_size(output_type);
 
@@ -128,7 +129,7 @@ bool TensorRTBackend::infer(const cv::Mat & input, cv::Mat & output, BackendCtx 
     if (
       cudaMemcpyAsync(
         trt_ctx->host_output_.data(), trt_ctx->output_device_, trt_ctx->output_bytes_,
-        cudaMemcpyDeviceToHost, trt_ctx->stream_) != cudaSuccess) {
+        cudaMemcpyDeviceToHost, stream_) != cudaSuccess) {
       tools::logger()->error("TensorRT output memcpy failed");
       return false;
     }
@@ -137,7 +138,7 @@ bool TensorRTBackend::infer(const cv::Mat & input, cv::Mat & output, BackendCtx 
     if (
       cudaMemcpyAsync(
         trt_ctx->host_output_half_.data(), trt_ctx->output_device_, trt_ctx->output_bytes_,
-        cudaMemcpyDeviceToHost, trt_ctx->stream_) != cudaSuccess) {
+        cudaMemcpyDeviceToHost, stream_) != cudaSuccess) {
       tools::logger()->error("TensorRT output memcpy failed");
       return false;
     }
@@ -146,7 +147,7 @@ bool TensorRTBackend::infer(const cv::Mat & input, cv::Mat & output, BackendCtx 
     return false;
   }
 
-  if (cudaStreamSynchronize(trt_ctx->stream_) != cudaSuccess) {
+  if (cudaStreamSynchronize(stream_) != cudaSuccess) {
     tools::logger()->error("TensorRT stream synchronize failed");
     return false;
   }
@@ -183,21 +184,21 @@ void TensorRTBackend::infer_async(const cv::Mat & input, BackendCtx * ctx)
 
   cudaMemcpyAsync(
     trt_ctx->input_device_, host_input.data(), trt_ctx->input_bytes_, cudaMemcpyHostToDevice,
-    trt_ctx->stream_);
-  trt_ctx->context_->enqueueV3(trt_ctx->stream_);
+    stream_);
+  ex_ctx_->enqueueV3(stream_);
 
   cudaMemcpyAsync(
     trt_ctx->host_output_.data(), trt_ctx->output_device_, trt_ctx->output_bytes_,
-    cudaMemcpyDeviceToHost, trt_ctx->stream_);
+    cudaMemcpyDeviceToHost, stream_);
 }
 
 void TensorRTBackend::wait_for_result(cv::Mat & output, BackendCtx * ctx)
 {
   auto * trt_ctx = static_cast<TensorRTCtx *>(ctx);
 
-  cudaStreamSynchronize(trt_ctx->stream_);
+  cudaStreamSynchronize(stream_);
 
-  auto output_dims = trt_ctx->context_->getTensorShape(output_name_.c_str());
+  auto output_dims = ex_ctx_->getTensorShape(output_name_.c_str());
   int rows = output_dims.d[output_dims.nbDims - 2];
   int cols = output_dims.d[output_dims.nbDims - 1];
   output = cv::Mat(rows, cols, CV_32F, trt_ctx->host_output_.data());
@@ -323,12 +324,12 @@ bool TensorRTBackend::ensure_context_ready(TensorRTCtx & ctx)
     input_dims.d[3] = model_config_.input_size.width;
   }
 
-  if (!ctx.context_->setInputShape(input_name_.c_str(), input_dims)) {
+  if (!ex_ctx_->setInputShape(input_name_.c_str(), input_dims)) {
     tools::logger()->error("Failed to set TensorRT input shape");
     return false;
   }
 
-  auto output_dims = ctx.context_->getTensorShape(output_name_.c_str());
+  auto output_dims = ex_ctx_->getTensorShape(output_name_.c_str());
   auto input_type = engine_->getTensorDataType(input_name_.c_str());
   auto output_type = engine_->getTensorDataType(output_name_.c_str());
   size_t input_bytes = tensor_bytes(input_dims, input_type);
@@ -351,8 +352,8 @@ bool TensorRTBackend::ensure_context_ready(TensorRTCtx & ctx)
   }
 
   if (
-    !ctx.context_->setTensorAddress(input_name_.c_str(), ctx.input_device_) ||
-    !ctx.context_->setTensorAddress(output_name_.c_str(), ctx.output_device_)) {
+    !ex_ctx_->setTensorAddress(input_name_.c_str(), ctx.input_device_) ||
+    !ex_ctx_->setTensorAddress(output_name_.c_str(), ctx.output_device_)) {
     tools::logger()->error("Failed to bind TensorRT tensors");
     return false;
   }

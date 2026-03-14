@@ -16,7 +16,6 @@ namespace auto_aim
 class TensorRTCtx : public BackendCtx
 {
 public:
-  TensorRTCtx();
   ~TensorRTCtx() override;
 
 private:
@@ -29,12 +28,10 @@ private:
     }
   };
 
-  nvinfer1::IExecutionContext * context_;
   void * input_device_{nullptr};
   void * output_device_{nullptr};
   size_t input_bytes_{0};
   size_t output_bytes_{0};
-  cudaStream_t stream_{nullptr};
   std::vector<float> host_output_;
   std::vector<__half> host_output_half_;
 
@@ -82,6 +79,7 @@ private:
   std::unique_ptr<nvinfer1::IRuntime, InferDeleter> runtime_;
   std::unique_ptr<nvinfer1::ICudaEngine, InferDeleter> engine_;
   std::unique_ptr<nvinfer1::IExecutionContext, InferDeleter> ex_ctx_;
+  cudaStream_t stream_{nullptr};
   std::string input_name_;
   std::string output_name_;
   bool use_fp16_{true};
