@@ -48,9 +48,9 @@ outpost_max_temp_lost_count: 75
 
 #####-----aimer参数-----#####
 yaw_offset: 0 # degree
-pitch_offset: 0 # degree
+pitch_offset: -1 # degree
 comming_angle: 55 # degree
-leaving_angle: 20 # degree
+leaving_angle: 10 # degree
 decision_speed: 7 # rad/s
 high_speed_delay_time: 0.0 # s
 low_speed_delay_time: 0.0 # s planner use this value
@@ -60,19 +60,21 @@ first_tolerance: 3 # 近距离射击容差，degree
 second_tolerance: 2 # 远距离射击容差，degree
 judge_distance: 2 #距离判断阈值
 auto_fire: true # 是否由自瞄控制射击
+default_bullet_speed: 12 # m/s，弹速异常(0/NaN/越界)时用于弹道解算兜底
 
 #####-----工业相机标定参数-----#####
-# 重投影误差: 0.1820px
-camera_matrix: [1785.4881526822305, 0, 672.4806478241826, 0, 1785.026019470562, 559.89603224794314, 0, 0, 1]
-distort_coeffs: [-0.076005079619881746, 0.11182817466388446, 0.0005362204787722057, -0.0027546300984895122, 0]
+# 重投影误差: 0.2654px
+camera_matrix: [2433.6898865178778, 0, 735.43761200471204, 0, 2432.4680403979605, 548.93950429490985, 0, 0, 1]
+distort_coeffs: [-0.025165467400342159, 0.14563413018771801, -0.0016046608513010309, 0.0021099352106817059, 0]
 
 R_gimbal2imubody: [1, 0, 0, 0, 1, 0, 0, 0, -1]
 
-# 相机同理想情况的偏角: yaw0.78 pitch-9.71 roll0.17 degree
-# 标定板到世界坐标系原点的水平距离: 1.26 m
-# 标定板同竖直摆放时的偏角: yaw-110.48 pitch20.79 roll2.59 degree
-R_camera2gimbal: [-0.014136563198363188, -0.16852651271529709, 0.98559574476199896, -0.99989575749726212, 0.005278851775101687, -0.013439042484943937, -0.0029379788825492216, -0.98568298566829138, -0.16858356991156756]
-t_camera2gimbal: [0.20655211194656695, 0.0083077735930537338, 0.081116422383881795]
+# 相机同理想情况的偏角: yaw0.19 pitch-10.42 roll2.13 degree
+# 标定板到世界坐标系原点的水平距离: 1.35 m
+# 标定板同竖直摆放时的偏角: yaw-9.69 pitch4.36 roll2.07 degree
+R_camera2gimbal: [-0.0099968219368503797, -0.18066940933899839, 0.98349307474951753, -0.9992790416087961, 0.037829971105087234, -0.0032078478133927973, -0.036625954630132442, -0.98281608544797738, -0.18091733369731541]
+t_camera2gimbal: [0.17749392493159685, -0.017689960166199975, 0.088992358034864841]
+
 
 #####-----gimbal参数-----#####
 com_port: "/dev/ttyACM0"
@@ -85,20 +87,20 @@ pitch_kd: 0
 fire_thresh: 0.0035
 
 # 求解器类型选择: "mpc" 或 "quintic_poly"
-solver_type: "quintic_poly"
+solver_type: "mpc"
 
 # MPC求解器参数（仅在solver_type="mpc"时使用）
-max_yaw_acc: 50
+max_yaw_acc: 30
 Q_yaw: [9e6, 0]
 R_yaw: [1]
 
-max_pitch_acc: 100
+max_pitch_acc: 50
 Q_pitch: [9e6, 0]
 R_pitch: [1]
 
 # 五次多项式求解器参数（仅在solver_type="quintic_poly"时使用）
 max_yaw_vel: 5.0      # yaw轴最大角速度（rad/s）
-max_yaw_acc: 5.0      # yaw轴最大角加速度（rad/s²）
+max_yaw_acc: 30.0      # yaw轴最大角加速度（rad/s²）
 max_pitch_vel: 5.0    # pitch轴最大角速度（rad/s）
-max_pitch_acc: 5.0   # pitch轴最大角加速度（rad/s²）
+max_pitch_acc: 30.0   # pitch轴最大角加速度（rad/s²）
 jump_threshold: 0.05     # 突变检测阈值（rad/s），相邻时间步角速度（斜率）变化超过此值则认为是突变
