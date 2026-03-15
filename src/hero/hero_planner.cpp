@@ -96,14 +96,16 @@ int main(int argc, char * argv[])
     }
     auto plan = planner.plan(target_opt, gimbal_state.bullet_speed);
 
-    // 发送plotter数据：时间、云台实际yaw/pitch、规划目标yaw/pitch
+    // 发送plotter数据：时间、当前计算yaw/pitch（瞄准角）、规划期后的yaw/pitch（MPC/五次多项式输出）
     {
       nlohmann::json data;
       data["t"] = tools::delta_time(std::chrono::steady_clock::now(), t0);
-      data["gimbal_yaw"] = gimbal_state.yaw;
-      data["gimbal_pitch"] = gimbal_state.pitch;
+      // 当前计算得到的瞄准角（考虑弹道补偿后的yaw/pitch）
       data["target_yaw"] = plan.target_yaw;
       data["target_pitch"] = plan.target_pitch;
+      // 规划期规划得到的yaw/pitch（MPC或五次多项式在预测时域中选择的输出）
+      data["plan_yaw"] = plan.yaw;
+      data["plan_pitch"] = plan.pitch;
       plotter.plot(data);
     }
 
