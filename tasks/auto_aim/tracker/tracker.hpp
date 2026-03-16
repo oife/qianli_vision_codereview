@@ -1,4 +1,4 @@
-﻿#ifndef AUTO_AIM__TRACKER_HPP
+#ifndef AUTO_AIM__TRACKER_HPP
 #define AUTO_AIM__TRACKER_HPP
 
 #include <Eigen/Dense>
@@ -42,6 +42,10 @@ private:
   Target target_;
   std::chrono::steady_clock::time_point last_timestamp_;
   ArmorPriority omni_target_priority_;
+
+  double fixed_low_armor_distance_{0.0};
+  double fixed_high_armor_distance_{0.0};
+  double fixed_height_diff_{0.0};
 
   void state_machine(bool found);
 

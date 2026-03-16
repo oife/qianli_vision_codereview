@@ -9,6 +9,7 @@
 
 #include <Eigen/Dense>
 #include <chrono>
+#include <limits>
 #include <optional>
 #include <queue>
 #include <string>
@@ -48,8 +49,8 @@ public:
    */
   Target(
     const Armor & armor, std::chrono::steady_clock::time_point t, double radius, int armor_num,
-    Eigen::VectorXd P0_dig, double fixed_short_axis_distance = 0.0,
-    double fixed_long_axis_distance = 0.0, double fixed_height_diff = 0.0);
+    Eigen::VectorXd P0_dig, double fixed_low_armor_distance = 0.0,
+    double fixed_high_armor_distance = 0.0, double fixed_height_diff = 0.0);
 
   /**
    * @brief 简化的构造函数
@@ -61,7 +62,7 @@ public:
   Target(double x, double vyaw, double radius, double h);
 
   void set_fixed_geometry(
-    double fixed_short_axis_distance, double fixed_long_axis_distance, double fixed_height_diff);
+    double fixed_low_armor_distance, double fixed_high_armor_distance, double fixed_height_diff);
 
   bool fixed_geometry_enabled() const;
 
@@ -133,11 +134,18 @@ private:
   std::chrono::steady_clock::time_point t_;  /**< @brief 最后更新时间戳 */
 
   bool fixed_geometry_enabled_{false};
-  double fixed_short_axis_distance_{0.0};
-  double fixed_long_axis_distance_{0.0};
+  double fixed_low_armor_distance_{0.0};
+  double fixed_high_armor_distance_{0.0};
   double fixed_height_diff_{0.0};
 
   void apply_fixed_geometry();
+
+  double observed_z_min_{std::numeric_limits<double>::infinity()};
+  double observed_z_max_{-std::numeric_limits<double>::infinity()};
+
+  void update_observed_z_extrema(double z);
+  bool can_classify_high_low() const;
+  bool classify_is_high(double z) const;
 
   /**
    * @brief 使用YPDA算法更新装甲板观测（yaw, pitch, distance, angle）
