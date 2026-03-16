@@ -56,9 +56,7 @@ Target::Target(
   };
 
   ekf_ = tools::ExtendedKalmanFilter(x0, P0, x_add);  //初始化滤波器（预测量、预测量协方差）
-
   set_fixed_geometry(fixed_low_armor_distance, fixed_high_armor_distance, fixed_height_diff);
-  update_observed_z_extrema(xyz[2]);
 }
 
 Target::Target(double x, double vyaw, double radius, double h) : armor_num_(4)
@@ -104,24 +102,6 @@ void Target::apply_fixed_geometry()
   ekf_.x[8] = fixed_low_armor_distance_;
   ekf_.x[9] = fixed_high_armor_distance_ - fixed_low_armor_distance_;
   ekf_.x[10] = fixed_height_diff_;
-}
-
-void Target::update_observed_z_extrema(double z)
-{
-  if (z < observed_z_min_) observed_z_min_ = z;
-  if (z > observed_z_max_) observed_z_max_ = z;
-}
-
-bool Target::can_classify_high_low() const
-{
-  // 需要观测到的高低差拉开到一定幅度，否则早期最高/最低相同会导致误判
-  return (observed_z_max_ - observed_z_min_) > 1e-3;
-}
-
-bool Target::classify_is_high(double z) const
-{
-  // 离最高更近 => 高板；离最低更近 => 低板
-  return std::abs(z - observed_z_max_) < std::abs(z - observed_z_min_);
 }
 
 void Target::predict(std::chrono::steady_clock::time_point t)
@@ -197,9 +177,7 @@ void Target::predict(double dt)
 
 void Target::update(const Armor & armor)
 {
-  update_observed_z_extrema(armor.xyz_in_world[2]);
-
-  // 装甲板匹配（暂时不使用高低板高度约束）
+  // 装甲板匹配
   int id = 0;
   auto min_angle_error = 1e10;
   const std::vector<Eigen::Vector4d> & xyza_list = armor_xyza_list();
@@ -216,7 +194,7 @@ void Target::update(const Armor & armor)
       Eigen::Vector3d ypd2 = tools::xyz2ypd(b.first.head(3));
       return ypd1[2] < ypd2[2];
     });
-  // 取前3个distance最小的装甲板，不再根据高度区分高/低板
+  // 取前3个distance最小的装甲板
   for (int i = 0; i < 3; i++) {
     const auto & xyza = xyza_i_list[i].first;
     int cand_id = xyza_i_list[i].second;
