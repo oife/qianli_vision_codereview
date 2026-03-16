@@ -37,7 +37,15 @@ Target::Target(
   // w: angular velocity
   // l: r2 - r1
   // h: z2 - z1
-  Eigen::VectorXd x0{{center_x, 0, center_y, 0, center_z, 0, ypr[0], 0, r, 0, 0}};  //初始化预测量
+  Eigen::VectorXd x0{{center_x, 0, center_y, 0, center_z, 0, ypr[0], 0, r, 0, 0}};  // 初始化预测量
+
+  // 将 r / dr / dh 的初始协方差锁死为极小值，结合 Q 中这三维过程噪声为 0，
+  // 使得 EKF 几乎不会更新这三个状态量（等效于定死）
+  if (P0_dig.size() == 11) {
+    P0_dig[8] = 1e-6;
+    P0_dig[9] = 1e-6;
+    P0_dig[10] = 1e-6;
+  }
   Eigen::MatrixXd P0 = P0_dig.asDiagonal();
 
   // 防止夹角求和出现异常值
@@ -191,7 +199,7 @@ void Target::update(const Armor & armor)
 {
   update_observed_z_extrema(armor.xyz_in_world[2]);
 
-  // 装甲板匹配
+  // 装甲板匹配（暂时不使用高低板高度约束）
   int id = 0;
   auto min_angle_error = 1e10;
   const std::vector<Eigen::Vector4d> & xyza_list = armor_xyza_list();
@@ -208,20 +216,10 @@ void Target::update(const Armor & armor)
       Eigen::Vector3d ypd2 = tools::xyz2ypd(b.first.head(3));
       return ypd1[2] < ypd2[2];
     });
-
-  bool restrict_high_low = can_classify_high_low();
-  bool is_high_obs = restrict_high_low ? classify_is_high(armor.xyz_in_world[2]) : false;
-
-  // 取前3个distance最小的装甲板
+  // 取前3个distance最小的装甲板，不再根据高度区分高/低板
   for (int i = 0; i < 3; i++) {
     const auto & xyza = xyza_i_list[i].first;
     int cand_id = xyza_i_list[i].second;
-
-    if (restrict_high_low) {
-      bool cand_is_high = (armor_num_ == 4) && (cand_id == 1 || cand_id == 3);
-      if (cand_is_high != is_high_obs) continue;
-    }
-
     Eigen::Vector3d ypd = tools::xyz2ypd(xyza.head(3));
     auto angle_error = std::abs(tools::limit_rad(armor.ypr_in_world[0] - xyza[3])) +
                        std::abs(tools::limit_rad(armor.ypd_in_world[0] - ypd[0]));
@@ -229,22 +227,6 @@ void Target::update(const Armor & armor)
     if (std::abs(angle_error) < std::abs(min_angle_error)) {
       id = cand_id;
       min_angle_error = angle_error;
-    }
-  }
-
-  // 若限制后没有候选（例如刚好前三个都被过滤掉），则回退到原始策略再选一次
-  if (restrict_high_low && min_angle_error > 1e9) {
-    min_angle_error = 1e10;
-    for (int i = 0; i < 3; i++) {
-      const auto & xyza = xyza_i_list[i].first;
-      int cand_id = xyza_i_list[i].second;
-      Eigen::Vector3d ypd = tools::xyz2ypd(xyza.head(3));
-      auto angle_error = std::abs(tools::limit_rad(armor.ypr_in_world[0] - xyza[3])) +
-                         std::abs(tools::limit_rad(armor.ypd_in_world[0] - ypd[0]));
-      if (std::abs(angle_error) < std::abs(min_angle_error)) {
-        id = cand_id;
-        min_angle_error = angle_error;
-      }
     }
   }
 
