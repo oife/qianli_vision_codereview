@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file target.hpp
  * @brief 自动瞄准系统目标跟踪类
  * @details 该文件定义了Target类，用于跟踪和预测装甲板目标的状态
@@ -48,7 +48,8 @@ public:
    */
   Target(
     const Armor & armor, std::chrono::steady_clock::time_point t, double radius, int armor_num,
-    Eigen::VectorXd P0_dig);
+    Eigen::VectorXd P0_dig, double fixed_short_axis_distance = 0.0,
+    double fixed_long_axis_distance = 0.0, double fixed_height_diff = 0.0);
 
   /**
    * @brief 简化的构造函数
@@ -58,6 +59,11 @@ public:
    * @param h 高度
    */
   Target(double x, double vyaw, double radius, double h);
+
+  void set_fixed_geometry(
+    double fixed_short_axis_distance, double fixed_long_axis_distance, double fixed_height_diff);
+
+  bool fixed_geometry_enabled() const;
 
   /**
    * @brief 根据时间戳进行状态预测
@@ -125,6 +131,13 @@ private:
 
   tools::ExtendedKalmanFilter ekf_;     /**< @brief 扩展卡尔曼滤波器 */
   std::chrono::steady_clock::time_point t_;  /**< @brief 最后更新时间戳 */
+
+  bool fixed_geometry_enabled_{false};
+  double fixed_short_axis_distance_{0.0};
+  double fixed_long_axis_distance_{0.0};
+  double fixed_height_diff_{0.0};
+
+  void apply_fixed_geometry();
 
   /**
    * @brief 使用YPDA算法更新装甲板观测（yaw, pitch, distance, angle）

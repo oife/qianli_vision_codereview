@@ -46,6 +46,13 @@ min_detect_count: 5
 max_temp_lost_count: 15
 outpost_max_temp_lost_count: 75
 
+# 固定目标几何参数（单位：m）
+# 当下列 3 个值都为非 0 时：不使用 EKF 去估计/预测长短轴距离与高低差，直接使用这里的固定值
+# 若不存在或任意一个为 0：使用 EKF 预测
+fixed_short_axis_distance: 0.23   # 短轴：装甲板中心到旋转中心距离 r_short
+fixed_long_axis_distance: 0.28    # 长轴：装甲板中心到旋转中心距离 r_long
+fixed_height_diff: 0.035           # 高低差：长轴装甲相对短轴装甲的高度差 (z_long - z_short)
+
 #####-----aimer参数-----#####
 yaw_offset: 0 # degree
 pitch_offset: -1 # degree

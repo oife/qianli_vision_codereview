@@ -1,4 +1,4 @@
-﻿#include "target.hpp"
+#include "target.hpp"
 
 #include <numeric>
 
@@ -9,7 +9,8 @@ namespace auto_aim
 {
 Target::Target(
   const Armor & armor, std::chrono::steady_clock::time_point t, double radius, int armor_num,
-  Eigen::VectorXd P0_dig)
+  Eigen::VectorXd P0_dig, double fixed_short_axis_distance, double fixed_long_axis_distance,
+  double fixed_height_diff)
 : name(armor.name),
   armor_type(armor.type),
   jumped(false),
@@ -47,6 +48,8 @@ Target::Target(
   };
 
   ekf_ = tools::ExtendedKalmanFilter(x0, P0, x_add);  //初始化滤波器（预测量、预测量协方差）
+
+  set_fixed_geometry(fixed_short_axis_distance, fixed_long_axis_distance, fixed_height_diff);
 }
 
 Target::Target(double x, double vyaw, double radius, double h) : armor_num_(4)
@@ -63,6 +66,35 @@ Target::Target(double x, double vyaw, double radius, double h) : armor_num_(4)
   };
 
   ekf_ = tools::ExtendedKalmanFilter(x0, P0, x_add);  //初始化滤波器（预测量、预测量协方差）
+}
+
+void Target::set_fixed_geometry(
+  double fixed_short_axis_distance, double fixed_long_axis_distance, double fixed_height_diff)
+{
+  fixed_short_axis_distance_ = fixed_short_axis_distance;
+  fixed_long_axis_distance_ = fixed_long_axis_distance;
+  fixed_height_diff_ = fixed_height_diff;
+
+  auto non_zero = [](double v) { return std::abs(v) > 1e-9; };
+  fixed_geometry_enabled_ =
+    non_zero(fixed_short_axis_distance_) && non_zero(fixed_long_axis_distance_) &&
+    non_zero(fixed_height_diff_);
+
+  apply_fixed_geometry();
+}
+
+bool Target::fixed_geometry_enabled() const { return fixed_geometry_enabled_; }
+
+void Target::apply_fixed_geometry()
+{
+  if (!fixed_geometry_enabled_) return;
+
+  // x[8] : short-axis distance
+  // x[9] : long-short difference (r_long - r_short)
+  // x[10]: height difference (z_long - z_short)
+  ekf_.x[8] = fixed_short_axis_distance_;
+  ekf_.x[9] = fixed_long_axis_distance_ - fixed_short_axis_distance_;
+  ekf_.x[10] = fixed_height_diff_;
 }
 
 void Target::predict(std::chrono::steady_clock::time_point t)
@@ -133,6 +165,7 @@ void Target::predict(double dt)
     this->ekf_.x[7] = this->ekf_.x[7] > 0 ? 2.51 : -2.51;
 
   ekf_.predict(F, Q, f);
+  apply_fixed_geometry();
 }
 
 void Target::update(const Armor & armor)
@@ -182,6 +215,7 @@ void Target::update(const Armor & armor)
   update_count_++;
 
   update_ypda(armor, id);
+  apply_fixed_geometry();
 }
 
 void Target::update_ypda(const Armor & armor, int id)
