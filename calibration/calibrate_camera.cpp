@@ -9,6 +9,7 @@
 const std::string keys =
   "{help h usage ? |                          | 输出命令行参数说明}"
   "{config-path c  | configs/calibration.yaml | yaml配置文件路径 }"
+  "{headless       | false                    | 无GUI模式        }"
   "{@input-folder  | assets/img_with_q        | 输入文件夹路径   }";
 
 std::vector<cv::Point3f> centers_3d(const cv::Size & pattern_size, const float center_distance)
@@ -23,7 +24,8 @@ std::vector<cv::Point3f> centers_3d(const cv::Size & pattern_size, const float c
 }
 
 void load(
-  const std::string & input_folder, const std::string & config_path, cv::Size & img_size,
+  const std::string & input_folder, const std::string & config_path, bool headless,
+  cv::Size & img_size,
   std::vector<std::vector<cv::Point3f>> & obj_points,
   std::vector<std::vector<cv::Point2f>> & img_points)
 {
@@ -57,11 +59,13 @@ void load(
     }
 
     // 显示识别结果
-    auto drawing = img.clone();
-    cv::drawChessboardCorners(drawing, pattern_size, centers_2d, success);
-    cv::resize(drawing, drawing, {}, 0.5, 0.5);  // 缩小图片尺寸便于显示完全
-    cv::imshow("Press any to continue", drawing);
-    cv::waitKey(0);
+    if (!headless) {
+      auto drawing = img.clone();
+      cv::drawChessboardCorners(drawing, pattern_size, centers_2d, success);
+      cv::resize(drawing, drawing, {}, 0.5, 0.5);
+      cv::imshow("Press any to continue", drawing);
+      cv::waitKey(0);
+    }
 
     // 输出识别结果
     fmt::print("[{}] {}\n", success ? "success" : "failure", img_path);
@@ -103,12 +107,13 @@ int main(int argc, char * argv[])
   }
   auto input_folder = cli.get<std::string>(0);
   auto config_path = cli.get<std::string>("config-path");
+  auto headless = cli.get<bool>("headless");
 
   // 从输入文件夹中加载标定所需的数据
   cv::Size img_size;
   std::vector<std::vector<cv::Point3f>> obj_points;
   std::vector<std::vector<cv::Point2f>> img_points;
-  load(input_folder, config_path, img_size, obj_points, img_points);
+  load(input_folder, config_path, headless, img_size, obj_points, img_points);
 
   // 相机标定
   cv::Mat camera_matrix, distort_coeffs;

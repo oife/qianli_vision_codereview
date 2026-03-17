@@ -10,7 +10,7 @@
 
 namespace tools
 {
-Recorder::Recorder(double fps) : init_(false), fps_(fps), queue_(1), stop_thread_(false)
+Recorder::Recorder(double fps, bool gui) : init_(false), gui_(gui), fps_(fps), queue_(1), stop_thread_(false)
 {
   start_time_ = std::chrono::steady_clock::now();
   last_time_ = start_time_;
@@ -33,6 +33,7 @@ Recorder::~Recorder()
   if (!init_) return;
   text_writer_.close();
   video_writer_.release();
+  if (gui_) cv::destroyWindow("recorder");
 }
 
 void Recorder::save_to_file()
@@ -47,17 +48,25 @@ void Recorder::save_to_file()
     // 写入视频文件
     video_writer_.write(frame.img);
 
-    // 写入文本文件（输出顺序为wxyz）
+    // GUI显示
+    if (gui_) {
+      cv::imshow("recorder", frame.img);
+      if (cv::waitKey(1) == 'q') gui_ = false;
+    }
+
+    // 写入文本文件（输出顺序为wxyz + gimbal state）
     Eigen::Vector4d xyzw = frame.q.coeffs();
     auto since_begin = tools::delta_time(frame.timestamp, start_time_);
     text_writer_ << fmt::format(
-      "{} {} {} {} {}\n", since_begin, xyzw[3], xyzw[0], xyzw[1], xyzw[2]);
+      "{} {} {} {} {} {} {} {} {} {} {}\n", since_begin, xyzw[3], xyzw[0], xyzw[1], xyzw[2],
+      frame.yaw, frame.yaw_vel, frame.pitch, frame.pitch_vel, frame.bullet_speed, frame.bullet_count);
   }
 }
 
 void Recorder::record(
   const cv::Mat & img, const Eigen::Quaterniond & q,
-  const std::chrono::steady_clock::time_point & timestamp)
+  const std::chrono::steady_clock::time_point & timestamp,
+  const io::GimbalState * gimbal_state)
 {
   if (img.empty()) return;
   if (!init_) init(img);
@@ -66,7 +75,20 @@ void Recorder::record(
   if (since_last < 1.0 / fps_) return;
 
   last_time_ = timestamp;
-  queue_.push({img, q, timestamp});
+  FrameData fd;
+  fd.img = img;
+  fd.q = q;
+  fd.timestamp = timestamp;
+  if (gimbal_state) {
+    fd.yaw = gimbal_state->yaw;
+    fd.yaw_vel = gimbal_state->yaw_vel;
+    fd.pitch = gimbal_state->pitch;
+    fd.pitch_vel = gimbal_state->pitch_vel;
+    fd.bullet_speed = gimbal_state->bullet_speed;
+    fd.bullet_count = gimbal_state->bullet_count;
+    fd.has_gimbal_state = true;
+  }
+  queue_.push(std::move(fd));
 }
 
 void Recorder::init(const cv::Mat & img)

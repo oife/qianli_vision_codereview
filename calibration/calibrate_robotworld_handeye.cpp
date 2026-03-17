@@ -12,6 +12,7 @@
 const std::string keys =
   "{help h usage ? |                          | 输出命令行参数说明}"
   "{config-path c  | configs/calibration.yaml | yaml配置文件路径 }"
+  "{headless       | false                    | 无GUI模式        }"
   "{@input-folder  | assets/img_with_q        | 输入文件夹路径   }";
 
 std::vector<cv::Point3f> centers_3d(const cv::Size & pattern_size, const float center_distance)
@@ -39,7 +40,7 @@ Eigen::Quaterniond read_q(const std::string & q_path)
 }
 
 void load(
-  const std::string & input_folder, const std::string & config_path,
+  const std::string & input_folder, const std::string & config_path, bool headless,
   std::vector<double> & R_gimbal2imubody_data, std::vector<cv::Mat> & R_world2gimbal_list,
   std::vector<cv::Mat> & t_world2gimbal_list, std::vector<cv::Mat> & rvecs,
   std::vector<cv::Mat> & tvecs)
@@ -95,10 +96,12 @@ void load(
     }
 
     // 显示识别结果
-    cv::drawChessboardCorners(drawing, pattern_size, centers_2d, success);
-    cv::resize(drawing, drawing, {}, 0.5, 0.5);  // 显示时缩小图片尺寸
-    cv::imshow("Press any to continue", drawing);
-    cv::waitKey(0);
+    if (!headless) {
+      cv::drawChessboardCorners(drawing, pattern_size, centers_2d, success);
+      cv::resize(drawing, drawing, {}, 0.5, 0.5);
+      cv::imshow("Press any to continue", drawing);
+      cv::waitKey(0);
+    }
 
     // 输出识别结果
     fmt::print("[{}] {}\n", success ? "success" : "failure", img_path);
@@ -167,13 +170,14 @@ int main(int argc, char * argv[])
   }
   auto input_folder = cli.get<std::string>(0);
   auto config_path = cli.get<std::string>("config-path");
+  auto headless = cli.get<bool>("headless");
 
   // 从输入文件夹中加载标定所需的数据
   std::vector<double> R_gimbal2imubody_data;
   std::vector<cv::Mat> R_world2gimbal_list, t_world2gimbal_list;
   std::vector<cv::Mat> rvecs, tvecs;
   load(
-    input_folder, config_path, R_gimbal2imubody_data, R_world2gimbal_list, t_world2gimbal_list,
+    input_folder, config_path, headless, R_gimbal2imubody_data, R_world2gimbal_list, t_world2gimbal_list,
     rvecs, tvecs);
 
   // 手眼标定

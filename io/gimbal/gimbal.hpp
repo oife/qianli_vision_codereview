@@ -10,6 +10,7 @@
 #include <tuple>
 
 #include "serial/serial.h"
+#include "io/gimbal/gimbal_state.hpp"
 #include "tools/thread_safe_queue/thread_safe_queue.hpp"
 
 namespace io
@@ -44,24 +45,6 @@ struct __attribute__((packed)) VisionToGimbal
 };
 
 static_assert(sizeof(VisionToGimbal) <= 64);
-
-enum class GimbalMode
-{
-  IDLE,        // 空闲
-  AUTO_AIM,    // 自瞄
-  SMALL_BUFF,  // 小符
-  BIG_BUFF     // 大符
-};
-
-struct GimbalState
-{
-  float yaw;
-  float yaw_vel;
-  float pitch;
-  float pitch_vel;
-  float bullet_speed;
-  uint16_t bullet_count;
-};
 
 class Gimbal
 {

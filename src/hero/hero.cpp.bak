@@ -2,8 +2,6 @@
 #include <fmt/core.h>
 
 #include <chrono>
-#include <deque>
-#include <numeric>
 #include <opencv2/opencv.hpp>
 
 #include "io/camera/camera.hpp"
@@ -58,8 +56,6 @@ int main(int argc, char * argv[])
   io::GimbalMode gimbal_mode;
   io::Command last_command;
   int frame_count = 0;
-  std::deque<float> bullet_speed_history;
-  uint16_t last_bullet_count = 0;
 
   while (!exiter.exit()) {
     // 读取hik摄像头图像和时间戳
@@ -87,17 +83,9 @@ int main(int argc, char * argv[])
     auto tracker_start = std::chrono::steady_clock::now();
     auto targets = tracker.track(armors, t);
 
-    // 瞄准控制（使用前5发弹速的滑动平均）
+    // 瞄准控制（使用gimbal状态中的子弹速度）
     auto aimer_start = std::chrono::steady_clock::now();
-    if (gimbal_state.bullet_speed >= 14 && gimbal_state.bullet_count != last_bullet_count) {
-      bullet_speed_history.push_back(gimbal_state.bullet_speed);
-      if (bullet_speed_history.size() > 5) bullet_speed_history.pop_front();
-      last_bullet_count = gimbal_state.bullet_count;
-    }
-    double bullet_speed = 22;
-    if (!bullet_speed_history.empty())
-      bullet_speed = std::accumulate(bullet_speed_history.begin(), bullet_speed_history.end(), 0.0f) / bullet_speed_history.size();
-    auto command = aimer.aim(targets, t, bullet_speed);
+    auto command = aimer.aim(targets, t, gimbal_state.bullet_speed);
 
     // 射击判断（当目标存在、瞄准点有效且控制角度变化小于2度时）
     if (
@@ -140,7 +128,6 @@ int main(int argc, char * argv[])
       fmt::format(
         "gimbal yaw{:.2f}", (tools::eulers(gimbal_q.toRotationMatrix(), 2, 1, 0) * 57.3)[0]),
       {10, 90}, {255, 255, 255});
-    tools::draw_text(img, fmt::format("bs:{:.1f} avg:{:.1f}", gimbal_state.bullet_speed, bullet_speed), {10, 120}, {0, 200, 255});
 
     // 绘制帧率信息
     static auto last_time = std::chrono::steady_clock::now();
@@ -171,6 +158,12 @@ int main(int argc, char * argv[])
         solver.reproject_armor(aim_xyza.head(3), aim_xyza[3], target.armor_type, target.name);
       if (aim_point.valid) tools::draw_points(img, image_points, {0, 0, 255});
     }
+
+    // 显示图像（可选缩小尺寸以提高显示性能）
+    cv::resize(img, img, {}, 0.5, 0.5);
+    cv::imshow("hero_auto_aim", img);
+    auto key = cv::waitKey(1);
+    if (key == 'q') break;
 
     frame_count++;
   }

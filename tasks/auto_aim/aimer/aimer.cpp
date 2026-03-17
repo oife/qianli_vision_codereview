@@ -40,7 +40,7 @@ io::Command Aimer::aim(
   double delay_time =
     target.ekf_x()[7] > decision_speed_ ? high_speed_delay_time_ : low_speed_delay_time_;
 
-  if (bullet_speed < 14) bullet_speed = 23;
+  if (bullet_speed < 14) bullet_speed = 17;
 
   // 考虑detecor和tracker所消耗的时间，此外假设aimer的用时可忽略不计
   auto future = timestamp;
@@ -198,12 +198,22 @@ AimPoint Aimer::choose_aim_point(const Target & target)
     leaving_angle = leaving_angle_;
   }
 
-  // 在小陀螺时，一侧的装甲板不断出现，另一侧的装甲板不断消失，显然前者被打中的概率更高
+  // 在小陀螺时，选择即将转到正面的装甲板（delta_angle最接近0）
+  int best_id = -1;
+  double best_abs_delta = 1e10;
   for (int i = 0; i < armor_num; i++) {
     if (std::abs(delta_angle_list[i]) > coming_angle) continue;
-    if (ekf_x[7] > 0 && delta_angle_list[i] < leaving_angle) return {true, armor_xyza_list[i]};
-    if (ekf_x[7] < 0 && delta_angle_list[i] > -leaving_angle) return {true, armor_xyza_list[i]};
+    // ekf_x[7]>0时angle增大，即将出现的板delta_angle为负（从负转向0）
+    // ekf_x[7]<0时angle减小，即将出现的板delta_angle为正（从正转向0）
+    bool is_coming = (ekf_x[7] > 0 && delta_angle_list[i] < leaving_angle) ||
+                     (ekf_x[7] < 0 && delta_angle_list[i] > -leaving_angle);
+    if (!is_coming) continue;
+    if (std::abs(delta_angle_list[i]) < best_abs_delta) {
+      best_abs_delta = std::abs(delta_angle_list[i]);
+      best_id = i;
+    }
   }
+  if (best_id >= 0) return {true, armor_xyza_list[best_id]};
 
   return {false, armor_xyza_list[0]};
 }

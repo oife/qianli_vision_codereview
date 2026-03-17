@@ -3,10 +3,10 @@ pattern_rows: 8
 center_distance_mm: 15
 
 # R_gimbal2imubody: [1, 0, 0, 0, 1, 0, 0, 0, 1]
-# R_gimbal2imubody: [1, 0, 0, 0, 1, 0, 0, 0, -1]
+R_gimbal2imubody: [1, 0, 0, 0, 1, 0, 0, 0, -1]
 # R_gimbal2imubody: [1, 0, 0, 0, -1, 0, 0, 0, 1]
 # R_gimbal2imubody: [1, 0, 0, 0, -1, 0, 0, 0, -1]
-R_gimbal2imubody: [-1, 0, 0, 0, 1, 0, 0, 0, 1]
+# R_gimbal2imubody: [-1, 0, 0, 0, 1, 0, 0, 0, 1]
 # R_gimbal2imubody: [-1, 0, 0, 0, 1, 0, 0, 0, -1]
 # R_gimbal2imubody: [-1, 0, 0, 0, -1, 0, 0, 0, 1]
 # R_gimbal2imubody: [-1, 0, 0, 0, -1, 0, 0, 0, -1]
@@ -18,10 +18,10 @@ imu_source: "gimbal"
 com_port: "/dev/ttyACM0"
 
 camera_name: "hikrobot"
-exposure_ms: 3
+exposure_ms: 15
 gain: 10.0
 vid_pid: "2bdf:0001"
-image_rotate_180: true
+image_rotate_180: false
 
 #####-----cboard参数（仅在使用can时需要）-----#####
 # 当imu_source为"can"时，需要取消注释以下参数
@@ -30,6 +30,6 @@ image_rotate_180: true
 # send_canid: 0xff
 # can_interface: "can0"
 
-# 重投影误差: 0.1840px
-camera_matrix: [1802.1719526069726, 0, 721.92876481566952, 0, 1803.3806313111968, 569.56345908002345, 0, 0, 1]
-distort_coeffs: [-0.09261507425518023, 0.22187246728557139, 0.00075669972573856408, 0.0014021340601661364, 0]
+# 重投影误差: 0.1911px
+camera_matrix: [2402.224336112246, 0, 706.01196211204569, 0, 2400.2518274119602, 550.68934831776346, 0, 0, 1]
+distort_coeffs: [-0.028615064812785442, 0.12071167341048554, -0.0011606232796259556, 0.00032278455334136601, 0]

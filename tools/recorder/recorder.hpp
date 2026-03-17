@@ -8,17 +8,20 @@
 #include <opencv2/opencv.hpp>
 #include <thread>
 
+#include "io/gimbal/gimbal_state.hpp"
 #include "tools/thread_safe_queue/thread_safe_queue.hpp"
+
 namespace tools
 {
 class Recorder
 {
 public:
-  Recorder(double fps = 30);
+  Recorder(double fps = 30, bool gui = false);
   ~Recorder();
   void record(
     const cv::Mat & img, const Eigen::Quaterniond & q,
-    const std::chrono::steady_clock::time_point & timestamp);
+    const std::chrono::steady_clock::time_point & timestamp,
+    const io::GimbalState * gimbal_state = nullptr);
 
 private:
   struct FrameData
@@ -26,8 +29,12 @@ private:
     cv::Mat img;
     Eigen::Quaterniond q;
     std::chrono::steady_clock::time_point timestamp;
+    float yaw = 0, yaw_vel = 0, pitch = 0, pitch_vel = 0, bullet_speed = 0;
+    uint16_t bullet_count = 0;
+    bool has_gimbal_state = false;
   };
   bool init_;
+  bool gui_;
   std::atomic<bool> stop_thread_;
   double fps_;
   std::string text_path_;

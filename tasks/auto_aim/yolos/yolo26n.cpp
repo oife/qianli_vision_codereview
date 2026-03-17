@@ -100,15 +100,20 @@ std::list<Armor> YOLO26N::parse(
     float y2 = (cy + h / 2.f - pad_y_) / scale_;
 
     // 关键点（通道 15 开始）+ visibility
-    std::vector<cv::Point2f> kpts(NUM_KPTS);
-    std::vector<float> vis(NUM_KPTS);
+    // 原始顺序: k0, k1, k2, k3
+    // 按yolov5的方式重排为: k0, k3, k2, k1 以匹配Solver期望的 tl, tr, br, bl
+    std::vector<cv::Point2f> raw_kpts(NUM_KPTS);
+    std::vector<float> raw_vis(NUM_KPTS);
     int visible_count = 0;
     for (int k = 0; k < NUM_KPTS; k++) {
-      kpts[k].x = (data[(15 + k * 3 + 0) * num_anchors + i] - pad_x_) / scale_;
-      kpts[k].y = (data[(15 + k * 3 + 1) * num_anchors + i] - pad_y_) / scale_;
-      vis[k] = data[(15 + k * 3 + 2) * num_anchors + i];
-      if (vis[k] > 0.5f) visible_count++;
+      raw_kpts[k].x = (data[(15 + k * 3 + 0) * num_anchors + i] - pad_x_) / scale_;
+      raw_kpts[k].y = (data[(15 + k * 3 + 1) * num_anchors + i] - pad_y_) / scale_;
+      raw_vis[k] = data[(15 + k * 3 + 2) * num_anchors + i];
+      if (raw_vis[k] > 0.5f) visible_count++;
     }
+    // 重排: 0->0, 3->1, 2->2, 1->3 (与yolov5一致)
+    std::vector<cv::Point2f> kpts = {raw_kpts[0], raw_kpts[3], raw_kpts[2], raw_kpts[1]};
+    std::vector<float> vis = {raw_vis[0], raw_vis[3], raw_vis[2], raw_vis[1]};
 
     // 丢弃可见关键点 < 3 的检测
     if (visible_count < 3) continue;
@@ -163,6 +168,8 @@ std::list<Armor> YOLO26N::parse(
     armor.name = name;
     armor.type = type;
     armor.kpt_visibility = det.vis;
+    // 强制所有通过NMS的关键点为可见，避免Solver因visibility过滤导致PnP不稳定
+    for (auto & v : armor.kpt_visibility) v = 1.0f;
     armor.center_norm = get_center_norm(bgr_img, armor.center);
 
     armors.push_back(armor);
