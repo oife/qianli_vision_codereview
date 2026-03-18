@@ -1,4 +1,4 @@
-﻿// 装甲板姿态解算与重投影工具：
+// 装甲板姿态解算与重投影工具：
 // 1. 从标定文件读取相机与云台外参与相机内参；
 // 2. 通过 solvePnP 计算装甲板在云台/世界坐标系下的位姿；
 // 3. 提供 yaw 搜索优化与自定义代价函数计算；
@@ -115,10 +115,6 @@ void Solver::solve(Armor & armor) const
   // 相机系 -> 云台系 -> 世界系
   armor.xyz_in_gimbal = R_camera2gimbal_ * xyz_in_camera + t_camera2gimbal_;
   armor.xyz_in_world = R_gimbal2world_ * armor.xyz_in_gimbal;
-  
-  fmt::print(
-    "[PnP] armor xyz_in_world = [{:.3f}, {:.3f}, {:.3f}] m\n", armor.xyz_in_world[0],
-    armor.xyz_in_world[1], armor.xyz_in_world[2]);
 
   cv::Mat rmat;
   cv::Rodrigues(rvec, rmat);
@@ -225,9 +221,6 @@ double Solver::oupost_reprojection_error(Armor armor, const double & pitch)
   cv::cv2eigen(tvec, xyz_in_camera);
   armor.xyz_in_gimbal = R_camera2gimbal_ * xyz_in_camera + t_camera2gimbal_;
   armor.xyz_in_world = R_gimbal2world_ * armor.xyz_in_gimbal;
-  fmt::print(
-    "[PnP] armor xyz_in_world = [{:.3f}, {:.3f}, {:.3f}] m\n", armor.xyz_in_world[0],
-    armor.xyz_in_world[1], armor.xyz_in_world[2]);
 
   cv::Mat rmat;
   cv::Rodrigues(rvec, rmat);

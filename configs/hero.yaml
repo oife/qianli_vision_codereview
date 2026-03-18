@@ -3,7 +3,7 @@ enemy_color: "red"
 
 #####-----神经网络参数-----#####
 backend: openvino
-yolo_name: yolov5
+yolo_name: yolo26n
 classify_model: assets/tiny_resnet.onnx
 yolo26n_model_path: assets/best_fp32.onnx
 yolo11_model_path: assets/yolo11.xml
@@ -36,8 +36,8 @@ min_confidence: 0.8
 
 #####-----工业相机参数-----#####
 camera_name: "hikrobot"
-exposure_ms: 8
-gain: 5.0
+exposure_ms: 10 
+gain: 16.0
 vid_pid: "2bdf:0001"
 image_rotate_180: false
 
@@ -49,38 +49,62 @@ outpost_max_temp_lost_count: 75
 # 固定目标几何参数（单位：m）
 # 当下列 3 个值都为非 0 时：不使用 EKF 去估计/预测高/低装甲板距离与高低差，直接使用这里的固定值
 # 若不存在或任意一个为 0：使用 EKF 预测
-fixed_low_armor_distance: 0.0 #0.28    # 低板：装甲板中心到旋转中心距离 r_low
-fixed_high_armor_distance: 0.0 #0.23   # 高板：装甲板中心到旋转中心距离 r_high
-fixed_height_diff: 0.0 #0.035          # 高低差：高板相对低板的高度差 (z_high - z_low)
+# fixed_low_armor_distance: 0.28    # 低板：装甲板中心到旋转中心距离 r_low
+# fixed_high_armor_distance: 0.23   # 高板：装甲板中心到旋转中心距离 r_high
+# fixed_height_diff: 0.035          # 高低差：高板相对低板的高度差 (z_high - z_low)
+
+fixed_low_armor_distance: 0    # 低板：装甲板中心到旋转中心距离 r_low
+fixed_high_armor_distance: 0   # 高板：装甲板中心到旋转中心距离 r_high
+fixed_height_diff: 0          # 高低差：高板相对低板的高度差 (z_high - z_low)
 
 #####-----aimer参数-----#####
-yaw_offset: 0 # degree
+yaw_offset: -1 # degree
 pitch_offset: -1 # degree
 comming_angle: 55 # degree
 leaving_angle: 10 # degree
 decision_speed: 7 # rad/s
-high_speed_delay_time: 0.0 # s
-low_speed_delay_time: 0.0 # s planner use this value
+high_speed_delay_time: 0.12 # s
+low_speed_delay_time: 0.12 # s planner use this value（未配置左右时作为默认值）
+# 识别到目标水平平移方向后，分别使用不同的延迟补偿（单位：s）
+# - Left: 目标在图像中向左移动（center.x 变小）
+# - Right: 目标在图像中向右移动（center.x 变大）
+low_speed_delay_time_left: 0.12
+low_speed_delay_time_right: 0.15
 
 #####-----shooter参数-----#####
 first_tolerance: 3 # 近距离射击容差，degree
 second_tolerance: 2 # 远距离射击容差，degree
 judge_distance: 2 #距离判断阈值
 auto_fire: true # 是否由自瞄控制射击
-default_bullet_speed: 12 # m/s，弹速异常(0/NaN/越界)时用于弹道解算兜底
+default_bullet_speed: 15.5 # m/s，弹速异常(0/NaN/越界)时用于弹道解算兜底
+fire_mode: single
 
 #####-----工业相机标定参数-----#####
-# 重投影误差: 0.1647px
-camera_matrix: [3238.1857164791413, 0, 646.68644975997097, 0, 3237.3365481290216, 604.77800041562114, 0, 0, 1]
-distort_coeffs: [-0.053731448400275161, 0.37626315976617325, 0.00092645674212235476, 0.0032863251473162166, 0]
+# 12mm
+# # 重投影误差: 0.1647px
+# camera_matrix: [3238.1857164791413, 0, 646.68644975997097, 0, 3237.3365481290216, 604.77800041562114, 0, 0, 1]
+# distort_coeffs: [-0.053731448400275161, 0.37626315976617325, 0.00092645674212235476, 0.0032863251473162166, 0]
+
+# R_gimbal2imubody: [1, 0, 0, 0, 1, 0, 0, 0, -1]
+
+# # 相机同理想情况的偏角: yaw-1.40 pitch-10.84 roll4.74 degree
+# # 标定板到世界坐标系原点的水平距离: 2.25 m
+# # 标定板同竖直摆放时的偏角: yaw115.35 pitch1.48 roll3.85 degree
+# R_camera2gimbal: [0.0088553681671126091, -0.18944600768994327, 0.98185120696822836, -0.99665546310057862, 0.078096889176995046, 0.024057509693390603, -0.081237124065271574, -0.97878040748230055, -0.18812082182040765]
+# t_camera2gimbal: [0.45101261225149991, 0.055058235803253593, 0.0062274533868812432]
+
+# 8mm
+# 重投影误差: 0.1581px
+camera_matrix: [2394.1096763133833, 0, 708.08359669293111, 0, 2393.2977895923041, 567.38920709212687, 0, 0, 1]
+distort_coeffs: [-0.034063622089730357, 0.16661704951877326, 0.0013974416165038555, -0.0006519353514003052, 0]
 
 R_gimbal2imubody: [1, 0, 0, 0, 1, 0, 0, 0, -1]
 
-# 相机同理想情况的偏角: yaw-1.40 pitch-10.84 roll4.74 degree
-# 标定板到世界坐标系原点的水平距离: 2.25 m
-# 标定板同竖直摆放时的偏角: yaw115.35 pitch1.48 roll3.85 degree
-R_camera2gimbal: [0.0088553681671126091, -0.18944600768994327, 0.98185120696822836, -0.99665546310057862, 0.078096889176995046, 0.024057509693390603, -0.081237124065271574, -0.97878040748230055, -0.18812082182040765]
-t_camera2gimbal: [0.45101261225149991, 0.055058235803253593, 0.0062274533868812432]
+# 相机同理想情况的偏角: yaw-0.19 pitch-10.92 roll-4.49 degree
+# 标定板到世界坐标系原点的水平距离: 1.39 m
+# 标定板同竖直摆放时的偏角: yaw85.57 pitch5.54 roll-4.67 degree
+R_camera2gimbal: [0.018158804486670174, -0.18864134171090349, 0.9818781502901085, -0.99688233085182831, -0.078833946880268638, 0.0032904794035184103, 0.076784609493314934, -0.9788767302458411, -0.18948475064809295]
+t_camera2gimbal: [0.20617037848763153, 0.0051134993534901526, 0.069915654671019942]
 
 
 #####-----gimbal参数-----#####

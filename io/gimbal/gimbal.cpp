@@ -124,16 +124,6 @@ void Gimbal::send(
   tx_data_.crc16 = tools::get_crc16(
     reinterpret_cast<uint8_t *>(&tx_data_), sizeof(tx_data_) - sizeof(tx_data_.crc16));
 
-  // 打印当前即将发送的整帧 VisionToGimbal 数据（十六进制）
-  std::ostringstream oss;
-  oss << "[Gimbal] Tx frame:";
-  auto * bytes = reinterpret_cast<uint8_t *>(&tx_data_);
-  for (size_t i = 0; i < sizeof(tx_data_); ++i) {
-    oss << ' ' << std::uppercase << std::hex << std::setw(2) << std::setfill('0')
-        << static_cast<int>(bytes[i]);
-  }
-  tools::logger()->info("{}", oss.str());
-
   try {
     serial_.write(reinterpret_cast<uint8_t *>(&tx_data_), sizeof(tx_data_));
   } catch (const std::exception & e) {

@@ -7,6 +7,18 @@
 
 namespace auto_aim
 {
+namespace
+{
+// 将 z 误差转换成“可与角误差同量纲”的代价（无量纲）。
+// 直觉：当高低差可用时（fixed_height_diff 或已观测到足够 z 范围），错误选高/低板会产生接近 1 个 height_diff 的 z 偏差，
+// 这个偏差应该对匹配有强约束。
+inline double z_cost(double dz, double height_scale_m)
+{
+  const double s = std::max(1e-3, height_scale_m);
+  return std::abs(dz) / s;
+}
+}  // namespace
+
 Target::Target(
   const Armor & armor, std::chrono::steady_clock::time_point t, double radius, int armor_num,
   Eigen::VectorXd P0_dig, double fixed_low_armor_distance, double fixed_high_armor_distance,
@@ -51,7 +63,9 @@ Target::Target(
   // 防止夹角求和出现异常值
   auto x_add = [](const Eigen::VectorXd & a, const Eigen::VectorXd & b) -> Eigen::VectorXd {
     Eigen::VectorXd c = a + b;
-    c[6] = tools::limit_rad(c[6]);
+    // 状态角保持“连续角”（不在这里做 wrap），避免跨 ±pi 时出现回绕跳变。
+    // 若增量角过大，则先 wrap 增量以避免数值异常；结果角不 wrap。
+    c[6] = a[6] + tools::limit_rad(b[6]);
     return c;
   };
 
@@ -68,7 +82,8 @@ Target::Target(double x, double vyaw, double radius, double h) : armor_num_(4)
   // 防止夹角求和出现异常值
   auto x_add = [](const Eigen::VectorXd & a, const Eigen::VectorXd & b) -> Eigen::VectorXd {
     Eigen::VectorXd c = a + b;
-    c[6] = tools::limit_rad(c[6]);
+    // 状态角保持“连续角”，避免跨 ±pi 时回绕。
+    c[6] = a[6] + tools::limit_rad(b[6]);
     return c;
   };
 
@@ -163,7 +178,7 @@ void Target::predict(double dt)
   // 防止夹角求和出现异常值
   auto f = [&](const Eigen::VectorXd & x) -> Eigen::VectorXd {
     Eigen::VectorXd x_prior = F * x;
-    x_prior[6] = tools::limit_rad(x_prior[6]);
+    // 预测阶段同样保持连续角；wrap 只应发生在对外输出/残差计算中。
     return x_prior;
   };
 
@@ -194,6 +209,17 @@ void Target::update(const Armor & armor)
       Eigen::Vector3d ypd2 = tools::xyz2ypd(b.first.head(3));
       return ypd1[2] < ypd2[2];
     });
+
+  // 用 z 约束消除高/低板互认：
+  // - 当 fixed geometry 可用时，height_diff 是可信先验
+  // - 否则当观测到的 z 振幅足够大时，也可以使用观测范围做软约束
+  const double z_obs = armor.xyz_in_world[2];
+  update_observed_z_extrema(z_obs);
+  const bool z_class_ok = can_classify_high_low();
+  const double height_scale =
+    fixed_geometry_enabled() ? std::abs(fixed_height_diff_) : std::max(0.02, observed_z_max_ - observed_z_min_);
+  const double z_lambda = z_class_ok ? 0.8 : 0.0;  // 代价权重：让 z 在可判别时主导消歧
+
   // 取前3个distance最小的装甲板
   for (int i = 0; i < 3; i++) {
     const auto & xyza = xyza_i_list[i].first;
@@ -202,9 +228,13 @@ void Target::update(const Armor & armor)
     auto angle_error = std::abs(tools::limit_rad(armor.ypr_in_world[0] - xyza[3])) +
                        std::abs(tools::limit_rad(armor.ypd_in_world[0] - ypd[0]));
 
-    if (std::abs(angle_error) < std::abs(min_angle_error)) {
+    // 额外引入 z 匹配代价：观测 z 与该候选装甲板预测 z 的差
+    const double dz = z_obs - xyza[2];
+    const double total_cost = angle_error + z_lambda * z_cost(dz, height_scale);
+
+    if (total_cost < min_angle_error) {
       id = cand_id;
-      min_angle_error = angle_error;
+      min_angle_error = total_cost;
     }
   }
 
@@ -358,5 +388,29 @@ Eigen::MatrixXd Target::h_jacobian(const Eigen::VectorXd & x, int id) const
 }
 
 bool Target::checkinit() { return isinit; }
+
+void Target::update_observed_z_extrema(double z)
+{
+  observed_z_min_ = std::min(observed_z_min_, z);
+  observed_z_max_ = std::max(observed_z_max_, z);
+}
+
+bool Target::can_classify_high_low() const
+{
+  if (fixed_geometry_enabled()) {
+    return std::abs(fixed_height_diff_) > 1e-3;
+  }
+  // 当观测到的 z 振幅明显大于噪声时，允许用作消歧（经验阈值：2cm）
+  return (observed_z_max_ - observed_z_min_) > 0.02;
+}
+
+bool Target::classify_is_high(double z) const
+{
+  // 这里的“高/低”只是对 z 的二分，服务于候选消歧，不直接决定 armor_type。
+  // - fixed geometry：用 z 与中值的相对关系判断（假设高板 z 更大）
+  // - 非 fixed：用观测极值的中点阈值
+  const double mid = 0.5 * (observed_z_min_ + observed_z_max_);
+  return z > mid;
+}
 
 }  // namespace auto_aim
