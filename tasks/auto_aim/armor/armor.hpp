@@ -136,7 +136,7 @@ struct Armor
 
   ArmorType type;                     ///< 装甲板类型（大/小）
   ArmorName name;                     ///< 装甲板名称
-  ArmorPriority priority;             ///< 装甲板优先级
+  ArmorPriority priority = ArmorPriority::fifth;  ///< 装甲板优先级
   int class_id;                       ///< 类别ID（神经网络输出）
   cv::Rect box;                       ///< 边界框
   cv::Mat pattern;                    ///< 装甲板图案图像

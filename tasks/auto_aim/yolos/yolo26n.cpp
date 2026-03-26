@@ -2,6 +2,9 @@
 
 #include <yaml-cpp/yaml.h>
 
+#include <algorithm>
+#include <cmath>
+
 #include "tools/img_tools/img_tools.hpp"
 #include "tools/logger/logger.hpp"
 
@@ -149,10 +152,6 @@ std::list<Armor> YOLO26N::parse(
       default: name = ArmorName::not_armor; break;
     }
 
-    // 过滤 not_armor 和低置信度
-    if (name == ArmorName::not_armor) continue;
-    if (det.confidence < min_confidence_) continue;
-
     // ArmorType: name 推断 + 关键点宽高比辅助
     ArmorType type = infer_armor_type(name, det.kpts);
 
@@ -162,9 +161,11 @@ std::list<Armor> YOLO26N::parse(
     armor.name = name;
     armor.type = type;
     armor.kpt_visibility = det.vis;
-    // 与 orin 版本对齐：避免 Solver 因 visibility 过滤导致 PnP 不稳定
-    for (auto & v : armor.kpt_visibility) v = 1.0f;
     armor.center_norm = get_center_norm(bgr_img, armor.center);
+
+    if (!check_name(armor)) continue;
+    if (!check_type(armor)) continue;
+    if (!check_geometry(armor, bgr_img)) continue;
 
     armors.push_back(armor);
   }
@@ -192,24 +193,52 @@ std::list<Armor> YOLO26N::postprocess(
 
 ArmorType YOLO26N::infer_armor_type(ArmorName name, const std::vector<cv::Point2f> & kpts) const
 {
-  // sentry/outpost/engineer 一定是小装甲板
-  if (name == ArmorName::sentry || name == ArmorName::outpost || name == ArmorName::two)
-    return ArmorType::small;
+  (void)kpts;
+  // 与其他 YOLO 版本保持一致：英雄/基地为大装甲板，其余目标按小装甲板处理
+  if (name == ArmorName::one || name == ArmorName::base) return ArmorType::big;
+  return ArmorType::small;
+}
 
-  // hero 一定是大装甲板
-  if (name == ArmorName::one) return ArmorType::big;
+bool YOLO26N::check_name(const Armor & armor) const
+{
+  return armor.name != ArmorName::not_armor && armor.confidence > min_confidence_;
+}
 
-  // 步兵 3/4/5：用关键点宽高比辅助判断
-  // 宽 = 上边 + 下边平均，高 = 左边 + 右边平均
-  auto top_len = cv::norm(kpts[0] - kpts[1]);
-  auto bottom_len = cv::norm(kpts[3] - kpts[2]);
-  auto left_len = cv::norm(kpts[0] - kpts[3]);
-  auto right_len = cv::norm(kpts[1] - kpts[2]);
-  auto avg_width = (top_len + bottom_len) / 2.0;
-  auto avg_height = (left_len + right_len) / 2.0;
-  double aspect_ratio = avg_width / (avg_height + 1e-6);
+bool YOLO26N::check_type(const Armor & armor) const
+{
+  return (armor.type == ArmorType::small)
+           ? (armor.name != ArmorName::one && armor.name != ArmorName::base)
+           : (armor.name != ArmorName::two && armor.name != ArmorName::sentry &&
+              armor.name != ArmorName::outpost);
+}
 
-  return (aspect_ratio > BIG_ARMOR_RATIO_THRESH) ? ArmorType::big : ArmorType::small;
+bool YOLO26N::check_geometry(const Armor & armor, const cv::Mat & bgr_img) const
+{
+  if (armor.points.size() != 4) return false;
+
+  auto finite_point = [](const cv::Point2f & p) {
+    return std::isfinite(p.x) && std::isfinite(p.y);
+  };
+  if (!std::all_of(armor.points.begin(), armor.points.end(), finite_point)) return false;
+
+  constexpr float BORDER_MARGIN = 8.0f;
+  for (const auto & p : armor.points) {
+    if (
+      p.x < -BORDER_MARGIN || p.y < -BORDER_MARGIN || p.x > bgr_img.cols + BORDER_MARGIN ||
+      p.y > bgr_img.rows + BORDER_MARGIN) {
+      return false;
+    }
+  }
+
+  const float top_len = cv::norm(armor.points[0] - armor.points[1]);
+  const float right_len = cv::norm(armor.points[1] - armor.points[2]);
+  const float bottom_len = cv::norm(armor.points[2] - armor.points[3]);
+  const float left_len = cv::norm(armor.points[3] - armor.points[0]);
+
+  if (top_len < 2.0f || right_len < 2.0f || bottom_len < 2.0f || left_len < 2.0f) return false;
+  if (!std::isfinite(armor.ratio) || armor.ratio <= 0.0) return false;
+
+  return true;
 }
 
 cv::Point2f YOLO26N::get_center_norm(const cv::Mat & bgr_img, const cv::Point2f & center) const

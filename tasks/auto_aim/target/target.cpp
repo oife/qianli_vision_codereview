@@ -220,8 +220,9 @@ void Target::update(const Armor & armor)
     fixed_geometry_enabled() ? std::abs(fixed_height_diff_) : std::max(0.02, observed_z_max_ - observed_z_min_);
   const double z_lambda = z_class_ok ? 0.8 : 0.0;  // 代价权重：让 z 在可判别时主导消歧
 
-  // 取前3个distance最小的装甲板
-  for (int i = 0; i < 3; i++) {
+  // 取距离最近的前 3 个候选；对于双板目标等情况，候选数可能小于 3
+  const int candidate_count = std::min<int>(3, xyza_i_list.size());
+  for (int i = 0; i < candidate_count; i++) {
     const auto & xyza = xyza_i_list[i].first;
     int cand_id = xyza_i_list[i].second;
     Eigen::Vector3d ypd = tools::xyz2ypd(xyza.head(3));

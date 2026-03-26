@@ -77,6 +77,10 @@ private:
   cv::Point2f get_center_norm(const cv::Mat & bgr_img, const cv::Point2f & center) const;
 
   void draw_detections(const cv::Mat & img, const std::list<Armor> & armors, int frame_count) const;
+
+  bool check_name(const Armor & armor) const;
+  bool check_type(const Armor & armor) const;
+  bool check_geometry(const Armor & armor, const cv::Mat & bgr_img) const;
 };
 
 }  // namespace auto_aim
