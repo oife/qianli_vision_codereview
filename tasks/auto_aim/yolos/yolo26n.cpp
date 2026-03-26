@@ -8,32 +8,22 @@
 namespace auto_aim
 {
 
-YOLO26N::YOLO26N(const std::string & config_path, bool debug) : debug_(debug)
+YOLO26N::YOLO26N(const std::string & config_path, bool debug)
+: debug_(debug), backend_(config_path)
 {
   auto yaml = YAML::LoadFile(config_path);
   model_path_ = yaml["yolo26n_model_path"].as<std::string>();
-  device_ = yaml["device"].as<std::string>();
   min_confidence_ = yaml["min_confidence"].as<double>();
 
-  auto model = core_.read_model(model_path_);
+  BackendConfig config;
+  config.input_size = cv::Size(INPUT_SIZE, INPUT_SIZE);
+  // YOLO26n v2 训练/导出通常使用 Ultralytics letterbox：居中 + 114 填充
+  config.center_padding = true;
+  config.padding_color = cv::Scalar(114, 114, 114);
 
-  // FP16 模型自动添加类型转换
-  if (model->input(0).get_element_type() == ov::element::f16) {
-    ov::preprocess::PrePostProcessor ppp(model);
-    ppp.input().tensor().set_element_type(ov::element::f32);
-    ppp.input().preprocess().convert_element_type(ov::element::f16);
-    for (size_t i = 0; i < model->outputs().size(); i++)
-      ppp.output(i).postprocess().convert_element_type(ov::element::f32);
-    model = ppp.build();
+  if (!backend_.init(model_path_, config)) {
+    throw std::runtime_error("Backend initializing failed");
   }
-
-  compiled_model_ = core_.compile_model(
-    model, device_, ov::hint::performance_mode(ov::hint::PerformanceMode::LATENCY));
-
-  // 预分配推理请求和输入张量，避免每帧重复创建
-  infer_request_ = compiled_model_.create_infer_request();
-  input_tensor_ = ov::Tensor(ov::element::f32, {1, 3, INPUT_SIZE, INPUT_SIZE});
-  infer_request_.set_input_tensor(input_tensor_);
 }
 
 std::list<Armor> YOLO26N::detect(const cv::Mat & raw_img, int frame_count)
@@ -43,50 +33,19 @@ std::list<Armor> YOLO26N::detect(const cv::Mat & raw_img, int frame_count)
     return {};
   }
 
-  const cv::Mat * src = &raw_img;
-  cv::Mat padded;
+  cv::Mat output;
+  auto ctx = backend_.create_ctx();
+  if (!backend_.execute(raw_img, output, ctx.get())) return {};
 
-  if (raw_img.cols == INPUT_SIZE && raw_img.rows == INPUT_SIZE) {
-    // 输入已经是 640x640，跳过 resize 和 letterbox
-    scale_ = 1.f;
-    pad_x_ = 0.f;
-    pad_y_ = 0.f;
-  } else {
-    // 计算 letterbox 参数（居中 + 灰色 114 填充）
-    scale_ = std::min((float)INPUT_SIZE / raw_img.cols, (float)INPUT_SIZE / raw_img.rows);
-    int new_w = (int)(raw_img.cols * scale_);
-    int new_h = (int)(raw_img.rows * scale_);
-    pad_x_ = (INPUT_SIZE - new_w) / 2.f;
-    pad_y_ = (INPUT_SIZE - new_h) / 2.f;
+  // 复算 letterbox 参数（与 backend 配置一致：居中 padding）
+  scale_ = static_cast<float>(ctx->scale);
+  const int new_w = static_cast<int>(raw_img.cols * scale_);
+  const int new_h = static_cast<int>(raw_img.rows * scale_);
+  pad_x_ = (INPUT_SIZE - new_w) / 2.f;
+  pad_y_ = (INPUT_SIZE - new_h) / 2.f;
 
-    cv::Mat resized;
-    cv::resize(raw_img, resized, {new_w, new_h});
-    padded = cv::Mat(INPUT_SIZE, INPUT_SIZE, CV_8UC3, cv::Scalar(114, 114, 114));
-    resized.copyTo(padded(cv::Rect((int)pad_x_, (int)pad_y_, new_w, new_h)));
-    src = &padded;
-  }
-
-  // BGR -> NCHW RGB float32（直接写入预分配的 tensor）
-  float * input_data = input_tensor_.data<float>();
-  const int plane = INPUT_SIZE * INPUT_SIZE;
-  for (int y = 0; y < INPUT_SIZE; y++) {
-    const uchar * row = src->ptr<uchar>(y);
-    const int row_offset = y * INPUT_SIZE;
-    for (int x = 0; x < INPUT_SIZE; x++) {
-      const int px = x * 3;
-      const int idx = row_offset + x;
-      input_data[idx] = row[px + 2] / 255.f;              // R
-      input_data[plane + idx] = row[px + 1] / 255.f;      // G
-      input_data[2 * plane + idx] = row[px] / 255.f;      // B
-    }
-  }
-
-  infer_request_.infer();
-
-  auto out = infer_request_.get_output_tensor(0);
-  const float * det_data = out.data<float>();
-  int num_anchors = out.get_shape()[2];
-
+  const float * det_data = reinterpret_cast<const float *>(output.data);
+  const int num_anchors = output.cols;
   return parse(det_data, num_anchors, raw_img, frame_count);
 }
 

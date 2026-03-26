@@ -3,12 +3,12 @@ enemy_color: "red"
 
 #####-----神经网络参数-----#####
 backend: openvino
-yolo_name: yolov5
+yolo_name: yolo26n
 classify_model: assets/tiny_resnet.onnx
 yolo26n_model_path: assets/best_fp32.onnx
 yolo11_model_path: assets/yolo11.xml
 yolov8_model_path: assets/yolov8.xml
-yolov5_model_path: assets/yolov5.xml
+yolov5_model_path: assets/yolov5.onnx
 device: GPU
 min_confidence: 0.8
 use_traditional: false
@@ -37,9 +37,9 @@ min_confidence: 0.8
 #####-----工业相机参数-----#####
 camera_name: "hikrobot"
 exposure_ms: 8
-gain: 5.0
+gain: 16.0
 vid_pid: "2bdf:0001"
-image_rotate_180: true
+image_rotate_180: false
 
 #####-----tracker参数-----#####
 min_detect_count: 5
@@ -48,31 +48,33 @@ outpost_max_temp_lost_count: 75
 
 #####-----aimer参数-----#####
 yaw_offset: 0 # degree
-pitch_offset: 0 # degree
-comming_angle: 55 # degree
-leaving_angle: 20 # degree
+pitch_offset: 1.5 # degree
+comming_angle: 90 # degree
+leaving_angle: 0 # degree
 decision_speed: 7 # rad/s
-high_speed_delay_time: 0.0 # s
-low_speed_delay_time: 0.0 # s planner use this value
+high_speed_delay_time: 0.2 # s
+low_speed_delay_time: 0.2 # s planner use this value
 
 #####-----shooter参数-----#####
+default_bullet_speed: 22
+fire_mode: "burst" # single=单发精准模式, burst=泼水连发模式, none=不射击
 first_tolerance: 3 # 近距离射击容差，degree
 second_tolerance: 2 # 远距离射击容差，degree
 judge_distance: 2 #距离判断阈值
 auto_fire: true # 是否由自瞄控制射击
 
 #####-----工业相机标定参数-----#####
-# 重投影误差: 0.1840px
-camera_matrix: [1802.1719526069726, 0, 721.92876481566952, 0, 1803.3806313111968, 569.56345908002345, 0, 0, 1]
-distort_coeffs: [-0.09261507425518023, 0.22187246728557139, 0.00075669972573856408, 0.0014021340601661364, 0]
+# 重投影误差: 0.1911px
+camera_matrix: [2402.224336112246, 0, 706.01196211204569, 0, 2400.2518274119602, 550.68934831776346, 0, 0, 1]
+distort_coeffs: [-0.028615064812785442, 0.12071167341048554, -0.0011606232796259556, 0.00032278455334136601, 0]
 
-R_gimbal2imubody: [-1, 0, 0, 0, 1, 0, 0, 0, 1]
+R_gimbal2imubody: [1, 0, 0, 0, 1, 0, 0, 0, -1]
 
-# 相机同理想情况的偏角: yaw0.93 pitch2.19 roll-3.49 degree
-# 标定板到世界坐标系原点的水平距离: 0.69 m
-# 标定板同竖直摆放时的偏角: yaw69.76 pitch-3.90 roll177.47 degree
-R_camera2gimbal: [-0.018555013094418499, 0.037192843841034169, 0.99913582853187821, -0.99797811811486425, -0.061447038094837481, -0.016246146413406468, 0.060789696931142854, -0.99741714135881387, 0.038257794900278239]
-t_camera2gimbal: [0.10683127808138922, -0.0012247206563364269, -0.038899075919945895]
+# 相机同理想情况的偏角: yaw-0.83 pitch-2.96 roll0.27 degree
+# 标定板到世界坐标系原点的水平距离: 0.90 m
+# 标定板同竖直摆放时的偏角: yaw-16.13 pitch8.17 roll0.41 degree
+R_camera2gimbal: [0.014266928592646021, -0.051726575873046673, 0.99855937034158448, -0.99988683149608348, 0.0040287782031946722, 0.014494590263706152, -0.0047727297488522344, -0.99865315815584321, -0.0516632437629021]
+t_camera2gimbal: [0.085133713977198405, -0.00043887214899726958, 0.043136942325458429]
 
 #####-----gimbal参数-----#####
 com_port: "/dev/ttyACM0"

@@ -106,7 +106,7 @@ int main(int argc, char * argv[])
       // 0.2 s
       fire = false;
       fire_count = 0;
-    } else if (!fire && fire_count > 100) {
+    } else if (!fire && fire_count > 300) {
       // 1s
       fire = true;
       fire_count = 0;

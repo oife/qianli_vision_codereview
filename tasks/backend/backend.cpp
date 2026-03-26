@@ -34,7 +34,14 @@ bool BackendBase::standarlize(const cv::Mat & img, cv::Mat & target, double & sc
   auto h = static_cast<int>(img.rows * scale);
   auto w = static_cast<int>(img.cols * scale);
 
-  auto roi = cv::Rect(0, 0, w, h);
+  int pad_x = 0;
+  int pad_y = 0;
+  if (model_config_.center_padding) {
+    pad_x = (model_config_.input_size.width - w) / 2;
+    pad_y = (model_config_.input_size.height - h) / 2;
+  }
+
+  auto roi = cv::Rect(pad_x, pad_y, w, h);
   cv::resize(img, target(roi), {w, h});
   return (h != 0 && w != 0);
 }
@@ -43,6 +50,15 @@ bool BackendBase::execute(const cv::Mat & img, cv::Mat & target, BackendCtx * ct
 {
   cv::Mat input;
   if (!standarlize(img, input, ctx->scale)) return false;
+
+  // 记录 padding，供后处理使用（如需）
+  if (ctx) {
+    const int new_w = static_cast<int>(img.cols * ctx->scale);
+    const int new_h = static_cast<int>(img.rows * ctx->scale);
+    ctx->pad_x = model_config_.center_padding ? (model_config_.input_size.width - new_w) / 2.0 : 0.0;
+    ctx->pad_y =
+      model_config_.center_padding ? (model_config_.input_size.height - new_h) / 2.0 : 0.0;
+  }
   if (!infer(input, target, ctx)) return false;
   return true;
 }
@@ -51,7 +67,17 @@ void BackendBase::execute_async(const cv::Mat & img, BackendCtx * ctx)
 {
   cv::Mat input;
   standarlize(img, input, ctx->scale);
-  infer_async(img, ctx);
+
+  if (ctx) {
+    const int new_w = static_cast<int>(img.cols * ctx->scale);
+    const int new_h = static_cast<int>(img.rows * ctx->scale);
+    ctx->pad_x = model_config_.center_padding ? (model_config_.input_size.width - new_w) / 2.0 : 0.0;
+    ctx->pad_y =
+      model_config_.center_padding ? (model_config_.input_size.height - new_h) / 2.0 : 0.0;
+  }
+
+  // 这里必须传入预处理后的 input，而不是原图 img
+  infer_async(input, ctx);
 }
 
 Backend::Backend(const std::string config_path) { backend_allocate(config_path); }

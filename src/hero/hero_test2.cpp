@@ -7,11 +7,13 @@
 #include <fmt/core.h>
 #include <yaml-cpp/yaml.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <deque>
 #include <list>
 #include <nlohmann/json.hpp>
+#include <limits>
 #include <numeric>
 #include <sys/select.h>
 #include <unistd.h>
@@ -35,7 +37,7 @@
 
 const std::string keys =
   "{help h usage ? | | 输出命令行参数说明}"
-  "{@config-path   | configs/standard.yaml | yaml配置文件路径 }"
+  "{@config-path   | configs/hero.yaml | yaml配置文件路径 }"
   "{record         | false                 | 开启录制         }"
   "{viz            | true                  | 开启可视化界面   }"
   "{headless       | false                 | 无GUI模式        }";
@@ -58,14 +60,16 @@ constexpr double ROTATE_W = ROTATE_RPS * 2 * M_PI;  // ≈2.83 rad/s
 // 射击控制
 constexpr double SHOOT_YAW_THRESH = 0.6 / 57.3;
 constexpr double SHOOT_PITCH_THRESH = 0.6 / 57.3;
-constexpr double SHOOT_COOLDOWN_SEC = 1.2;
+constexpr double SHOOT_COOLDOWN_SEC = 1.0;
 constexpr int SHOOT_STABLE_FRAMES = 3;
+constexpr double SHOOT_ALIGN_TIME_THRESH_SEC = 0.03;
+constexpr double SHOOT_CENTERLINE_THRESH = 2.0 / 57.3;
 
 // EKF参数
 // 平移：v1适中，目标加速度不大（匀速平移为主）
 // 旋转：v2适中，目标匀速旋转，角加速度小但不为零
-constexpr double V1 = 50;     // 平移加速度方差（匀速~1m/s，加速度小）
-constexpr double V2 = 10.0;    // 角加速度方差（匀速旋转，允许小幅变化）
+constexpr double V1 = 20;     // 平移加速度方差（匀速~1m/s，加速度小）
+constexpr double V2 = 1.0;    // 角加速度方差（匀速旋转，允许小幅变化）
 constexpr double VZ = 0.01;   // z轴加速度方差（旋转中心高度不变，极小）
 }  // namespace exam
 
@@ -406,15 +410,41 @@ private:
 };
 
 // ============================================================
-// ExamAimer: 选"弹丸到达时正对"的板瞄准
+// ExamAimer2: yaw始终瞄准旋转中心；只在“弹丸到达时装甲板过中心线”时发射
 // ============================================================
-struct ExamAimPoint { bool valid; Eigen::Vector4d xyza; double face_angle; int locked_id; };
+namespace
+{
+inline double time_to_centerline(double delta, double w)
+{
+  constexpr double TWO_PI = 2.0 * CV_PI;
+  constexpr double EPS_W = 1e-3;
+  if (std::abs(w) < EPS_W) return std::numeric_limits<double>::infinity();
+
+  delta = tools::limit_rad(delta);
+  if (w > 0) {
+    return (delta <= 0) ? (-delta / w) : ((TWO_PI - delta) / w);
+  }
+  return (delta >= 0) ? (delta / (-w)) : ((TWO_PI + delta) / (-w));
+}
+}  // namespace
+
+struct ExamAimPoint
+{
+  bool valid = false;
+  Eigen::Vector4d xyza = Eigen::Vector4d::Zero();
+  Eigen::Vector3d center_xyz = Eigen::Vector3d::Zero();
+  double center_yaw = 0;
+  double fly_time = std::numeric_limits<double>::infinity();
+  double align_time = std::numeric_limits<double>::infinity();
+  double time_error = std::numeric_limits<double>::infinity();
+  double centerline_error = std::numeric_limits<double>::infinity();
+  int locked_id = 0;
+};
 
 class ExamAimer
 {
 public:
   ExamAimPoint debug_aim_point;
-  double debug_face_angle = 999;
 
   explicit ExamAimer(const std::string & config_path)
   {
@@ -432,6 +462,7 @@ public:
     std::chrono::steady_clock::time_point timestamp, double bullet_speed,
     ExamTracker::HorizontalMove move_dir = ExamTracker::HorizontalMove::Unknown)
   {
+    debug_aim_point = {};
     if (targets.empty()) return {false, false, 0, 0};
     auto target = targets.front();
 
@@ -442,71 +473,106 @@ public:
     auto future = timestamp + std::chrono::microseconds(int(dt * 1e6));
     target.predict(future);
 
-    auto ap0 = choose_best_plate(target);
-    debug_aim_point = ap0;
-    if (!ap0.valid) return {false, false, 0, 0};
+    auto ap = choose_best_center_shot(target, bullet_speed);
+    debug_aim_point = ap;
+    if (!ap.valid) return {false, false, 0, 0};
 
-    // 锁定选中的板id，迭代中不再切换
-    int locked_id = ap0.locked_id;
-
-    Eigen::Vector3d xyz0 = ap0.xyza.head(3);
-    double d0 = std::sqrt(xyz0[0]*xyz0[0] + xyz0[1]*xyz0[1]);
-    tools::Trajectory traj(bullet_speed, d0, xyz0[2]);
-    if (traj.unsolvable) { debug_aim_point.valid = false; return {false, false, 0, 0}; }
-
-    double prev_ft = traj.fly_time;
-    std::vector<ExamTarget> iters(10, target);
-    for (int i = 0; i < 10; ++i) {
-      iters[i].predict(future + std::chrono::microseconds((int)(prev_ft*1e6)));
-      auto list = iters[i].armor_xyza_list();
-      auto xyza = list[locked_id];
-      Eigen::Vector3d xyz = xyza.head(3);
-      double armor_angle = xyza[3];
-      double view_angle = std::atan2(xyz.y(), xyz.x());
-      double face = std::abs(tools::limit_rad(armor_angle - view_angle));
-      debug_aim_point = {true, xyza, face, locked_id};
-
-      double d = std::sqrt(xyz.x()*xyz.x() + xyz.y()*xyz.y());
-      traj = tools::Trajectory(bullet_speed, d, xyz.z());
-      if (traj.unsolvable) { debug_aim_point.valid = false; return {false, false, 0, 0}; }
-      if (std::abs(traj.fly_time - prev_ft) < 0.001) break;
-      prev_ft = traj.fly_time;
+    Eigen::Vector3d xyz = ap.xyza.head(3);
+    double d = std::sqrt(xyz.x() * xyz.x() + xyz.y() * xyz.y());
+    tools::Trajectory traj(bullet_speed, d, xyz.z());
+    if (traj.unsolvable) {
+      debug_aim_point.valid = false;
+      return {false, false, 0, 0};
     }
+    debug_aim_point.fly_time = traj.fly_time;
+    debug_aim_point.time_error = std::abs(traj.fly_time - debug_aim_point.align_time);
 
-    debug_face_angle = debug_aim_point.face_angle;
-
-    Eigen::Vector3d fxyz = debug_aim_point.xyza.head(3);
-    return {true, false, std::atan2(fxyz.y(), fxyz.x()) + yaw_offset_, traj.pitch + pitch_offset_};
+    return {true, false, ap.center_yaw + yaw_offset_, traj.pitch + pitch_offset_};
   }
 
 private:
   double yaw_offset_, pitch_offset_, low_speed_delay_time_;
   double low_speed_delay_time_left_, low_speed_delay_time_right_;
 
-  ExamAimPoint choose_best_plate(const ExamTarget & target)
+  ExamAimPoint choose_best_center_shot(const ExamTarget & target, double bullet_speed)
   {
     auto list = target.armor_xyza_list();
-    int n = (int)list.size();
+    if (list.empty()) return {};
 
-    int best = -1;
-    double best_face = 1e10;
-    for (int i = 0; i < n; i++) {
-      Eigen::Vector3d xyz = list[i].head(3);
-      double armor_angle = list[i][3];
-      double view_angle = std::atan2(xyz.y(), xyz.x());
-      double diff = tools::limit_rad(armor_angle - view_angle);
-      double face = std::abs(diff);
+    const auto ekf_x = target.ekf_x();
+    const double w = ekf_x[7];
+    const double center_yaw0 = std::atan2(ekf_x[2], ekf_x[0]);
+    constexpr double MAX_ALIGN_TIME = 1.5;
+    constexpr int MAX_TURNS = 2;
 
-      // 敌方始终逆时针旋转，只选即将从左边转过来的板(diff<0)
-      // 或者已经非常正对的板(face<15°)
-      if (diff > 0 && face > 15.0 / 57.3) continue;
+    bool found = false;
+    double best_score = std::numeric_limits<double>::infinity();
+    ExamAimPoint best;
 
-      if (face < best_face) { best_face = face; best = i; }
+    auto consider = [&](const ExamTarget & predicted, int id, double t_align) {
+      auto predicted_list = predicted.armor_xyza_list();
+      if (id < 0 || id >= static_cast<int>(predicted_list.size())) return;
+
+      const auto & xyza = predicted_list[id];
+      Eigen::Vector3d xyz = xyza.head(3);
+      double d = std::sqrt(xyz.x() * xyz.x() + xyz.y() * xyz.y());
+      tools::Trajectory traj(bullet_speed, d, xyz.z());
+      if (traj.unsolvable) return;
+
+      const auto ex = predicted.ekf_x();
+      Eigen::Vector3d center_xyz(ex[0], ex[2], ex[4]);
+      double center_yaw = std::atan2(center_xyz.y(), center_xyz.x());
+      double armor_yaw = std::atan2(xyz.y(), xyz.x());
+      double centerline_error = std::abs(tools::limit_rad(armor_yaw - center_yaw));
+      double time_error = std::abs(traj.fly_time - t_align);
+      double w_abs = std::max(std::abs(w), 1e-3);
+      double score = time_error + centerline_error / w_abs;
+
+      if (!found || score < best_score) {
+        found = true;
+        best_score = score;
+        best.valid = true;
+        best.xyza = xyza;
+        best.center_xyz = center_xyz;
+        best.center_yaw = center_yaw;
+        best.fly_time = traj.fly_time;
+        best.align_time = t_align;
+        best.time_error = time_error;
+        best.centerline_error = centerline_error;
+        best.locked_id = id;
+      }
+    };
+
+    if (std::abs(w) < 1e-3) {
+      for (int i = 0; i < static_cast<int>(list.size()); ++i) {
+        consider(target, i, 0.0);
+      }
+      if (found) best.time_error = std::numeric_limits<double>::infinity();
+      return best;
     }
 
-    if (best >= 0 && best_face < 60.0 / 57.3) return {true, list[best], best_face, best};
-    if (best >= 0) return {true, list[best], best_face, best};
-    return {false, list[0], 999, 0};
+    const double period = 2.0 * CV_PI / std::abs(w);
+    for (int i = 0; i < static_cast<int>(list.size()); ++i) {
+      double delta = tools::limit_rad(list[i][3] - center_yaw0);
+      double first_t = time_to_centerline(delta, w);
+      if (!std::isfinite(first_t)) continue;
+
+      for (int turn = 0; turn <= MAX_TURNS; ++turn) {
+        double t_align = first_t + turn * period;
+        if (t_align < 0 || t_align > MAX_ALIGN_TIME) continue;
+        auto predicted = target;
+        predicted.predict(t_align);
+        consider(predicted, i, t_align);
+      }
+    }
+
+    if (found) return best;
+
+    for (int i = 0; i < static_cast<int>(list.size()); ++i) {
+      consider(target, i, 0.0);
+    }
+    if (found) best.time_error = std::numeric_limits<double>::infinity();
+    return best;
   }
 };
 
@@ -557,7 +623,7 @@ int main(int argc, char * argv[])
   auto last_shoot_time = std::chrono::steady_clock::now() - std::chrono::seconds(5);
   bool burst_fire_enabled = true;  // burst模式下空格切换开火
 
-  tools::logger()->info("===== 完整形态考核模式(无计时) =====");
+  tools::logger()->info("===== hero_test2: yaw锁中心线考核模式 =====");
   tools::logger()->info("r={:.3f}m, dr={:.3f}m (定死), w0={:.2f}rad/s, v1={:.1f}, v2={:.2f}",
     exam::R_SHORT, exam::DR, exam::ROTATE_W, exam::V1, exam::V2);
   tools::logger()->info("visualization: {}", enable_viz ? "ON" : "OFF");
@@ -638,26 +704,30 @@ int main(int argc, char * argv[])
     // 射击判断
     command.shoot = false;
     if (!no_fire && !targets.empty() && aimer.debug_aim_point.valid && command.control) {
-      double ye = std::abs(command.yaw - last_command.yaw);
+      double ye = std::abs(tools::limit_rad(command.yaw - last_command.yaw));
       double pe = std::abs(command.pitch - last_command.pitch);
-      double fa = aimer.debug_face_angle;  // 板正对偏差(rad)
+      double te = aimer.debug_aim_point.time_error;
+      double ce = aimer.debug_aim_point.centerline_error;
 
-      bool facing = fa < 30.0 / 57.3 || fa > 100;
+      bool aligned = te < exam::SHOOT_ALIGN_TIME_THRESH_SEC &&
+                     ce < exam::SHOOT_CENTERLINE_THRESH;
       auto now = std::chrono::steady_clock::now();
       double since = tools::delta_time(now, last_shoot_time);
 
       if (burst_mode) {
-        // 泼水模式：板正对 + 空格切换开火
-        if (facing && burst_fire_enabled) {
+        // 泼水模式：只有预测“弹丸到达时恰好过中心线”才发
+        if (aligned && burst_fire_enabled) {
           command.shoot = true;
           shoot_count++;
           last_shoot_time = now;
-          tools::logger()->info("BURST #{} | face:{:.1f}d", shoot_count, fa * 57.3);
+          tools::logger()->info(
+            "BURST #{} | terr:{:.0f}ms cerr:{:.2f}d fly:{:.0f}ms align:{:.0f}ms",
+            shoot_count, te * 1000.0, ce * 57.3, aimer.debug_aim_point.fly_time * 1000.0,
+            aimer.debug_aim_point.align_time * 1000.0);
         }
       } else {
-        // 单发模式：需要稳定帧数 + cooldown
         bool stable = ye < exam::SHOOT_YAW_THRESH && pe < exam::SHOOT_PITCH_THRESH;
-        if (stable && facing) stable_count++;
+        if (stable && aligned) stable_count++;
         else stable_count = 0;
 
         if (stable_count >= exam::SHOOT_STABLE_FRAMES && since >= exam::SHOOT_COOLDOWN_SEC) {
@@ -665,8 +735,9 @@ int main(int argc, char * argv[])
           shoot_count++;
           last_shoot_time = now;
           stable_count = 0;
-          tools::logger()->info("SHOOT #{} | face:{:.1f}d ye:{:.3f}d pe:{:.3f}d",
-            shoot_count, fa * 57.3, ye * 57.3, pe * 57.3);
+          tools::logger()->info(
+            "SHOOT #{} | terr:{:.0f}ms cerr:{:.2f}d ye:{:.3f}d pe:{:.3f}d",
+            shoot_count, te * 1000.0, ce * 57.3, ye * 57.3, pe * 57.3);
         }
       }
     } else { stable_count = 0; }
@@ -695,7 +766,7 @@ int main(int argc, char * argv[])
 
     // 可视化
     if (enable_viz) {
-      tools::draw_text(img, fmt::format("EXAM shoot:{} count:{}",
+      tools::draw_text(img, fmt::format("EXAM2 shoot:{} count:{}",
         command.shoot, shoot_count), {10,60}, {0,255,255});
 
       static auto last_time = std::chrono::steady_clock::now();
@@ -713,11 +784,12 @@ int main(int argc, char * argv[])
           tools::draw_points(img, solver.reproject_armor(ap.head(3), ap[3], tgt.armor_type, tgt.name), {0,0,255});
         }
         auto ex = tgt.ekf_x();
-        tools::draw_text(img, fmt::format("vx:{:.2f} vy:{:.2f} w:{:.3f} r:{:.3f} face:{:.1f}d",
-          ex[1], ex[3], ex[7], ex[8], aimer.debug_face_angle*57.3), {10,120}, {200,200,255});
+        tools::draw_text(img, fmt::format("vx:{:.2f} vy:{:.2f} w:{:.3f} r:{:.3f} terr:{:.0f}ms cerr:{:.1f}d",
+          ex[1], ex[3], ex[7], ex[8], aimer.debug_aim_point.time_error * 1000.0,
+          aimer.debug_aim_point.centerline_error * 57.3), {10,120}, {200,200,255});
       }
 
-      cv::imshow("hero_test", img);
+      cv::imshow("hero_test2", img);
       int key = cv::waitKey(1);
       if (key == ' ' && burst_mode) {
         burst_fire_enabled = !burst_fire_enabled;

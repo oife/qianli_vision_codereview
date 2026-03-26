@@ -19,6 +19,8 @@ struct BackendConfig
   cv::Size input_size{640, 640};
   int input_channels{3};
   cv::Scalar padding_color{0, 0, 0};
+  // 是否采用居中 letterbox（否则 resize 后贴左上角）
+  bool center_padding{false};
   bool preprocess{true};
   bool throughput_priority{false};
 };
@@ -28,7 +30,10 @@ class BackendCtx
 public:
   BackendCtx() = default;
   virtual ~BackendCtx() = default;
-  double scale;
+  double scale{1.0};
+  // 对应 standarlize() 产生的 padding（像素）
+  double pad_x{0.0};
+  double pad_y{0.0};
 };
 
 /**

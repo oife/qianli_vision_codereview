@@ -36,7 +36,7 @@ min_confidence: 0.8
 
 #####-----工业相机参数-----#####
 camera_name: "hikrobot"
-exposure_ms: 10 
+exposure_ms: 10
 gain: 16.0
 vid_pid: "2bdf:0001"
 image_rotate_180: false
@@ -58,25 +58,25 @@ fixed_high_armor_distance: 0   # 高板：装甲板中心到旋转中心距离 r
 fixed_height_diff: 0          # 高低差：高板相对低板的高度差 (z_high - z_low)
 
 #####-----aimer参数-----#####
-yaw_offset: -1 # degree
-pitch_offset: -1 # degree
+yaw_offset: 0 # degree 0
+pitch_offset: -1 # degree 0
 comming_angle: 55 # degree
 leaving_angle: 10 # degree
 decision_speed: 7 # rad/s
-high_speed_delay_time: 0.12 # s
-low_speed_delay_time: 0.12 # s planner use this value（未配置左右时作为默认值）
+high_speed_delay_time: 0.16 # s
+low_speed_delay_time: 0.16 # s planner use this value（未配置左右时作为默认值）
 # 识别到目标水平平移方向后，分别使用不同的延迟补偿（单位：s）
 # - Left: 目标在图像中向左移动（center.x 变小）
 # - Right: 目标在图像中向右移动（center.x 变大）
-low_speed_delay_time_left: 0.12
-low_speed_delay_time_right: 0.15
+low_speed_delay_time_left: 0.2
+low_speed_delay_time_right: 0.2
 
 #####-----shooter参数-----#####
 first_tolerance: 3 # 近距离射击容差，degree
 second_tolerance: 2 # 远距离射击容差，degree
 judge_distance: 2 #距离判断阈值
 auto_fire: true # 是否由自瞄控制射击
-default_bullet_speed: 15.5 # m/s，弹速异常(0/NaN/越界)时用于弹道解算兜底
+default_bullet_speed: 11 # m/s，弹速异常(0/NaN/越界)时用于弹道解算兜底
 fire_mode: single
 
 #####-----工业相机标定参数-----#####

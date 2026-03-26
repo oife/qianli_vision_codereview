@@ -13,6 +13,7 @@
 #include "tasks/auto_aim/tracker/tracker.hpp"
 #include "tasks/auto_aim/yolos/yolo.hpp"
 #include "tools/exiter/exiter.hpp"
+#include "tools/img_tools/img_tools.hpp"
 #include "tools/logger/logger.hpp"
 #include "tools/math_tools/math_tools.hpp"
 
@@ -28,7 +29,7 @@ namespace hero_shoot
 constexpr double SHOOT_YAW_THRESH = 0.6 / 57.3;    // rad
 constexpr double SHOOT_PITCH_THRESH = 0.6 / 57.3;  // rad
 constexpr int SHOOT_STABLE_FRAMES = 3;             // 连续稳定帧数
-constexpr double SHOOT_COOLDOWN_SEC = 1;         // 冷却，避免过快连发
+constexpr double SHOOT_COOLDOWN_SEC = 1;           // 冷却，避免过快连发
 }  // namespace hero_shoot
 
 int main(int argc, char * argv[])
@@ -99,7 +100,7 @@ int main(int argc, char * argv[])
     auto aimer_start = std::chrono::steady_clock::now();
     auto command = aimer.aim(targets, t, gimbal_state.bullet_speed);
 
-    // 射击判断：稳定帧 + 更严格门限（参考 hero_test 的单发逻辑）
+    // 射击判断：稳定帧 + 更严格门限（与 hero 保持一致）
     command.shoot = false;
     if (!targets.empty() && aimer.debug_aim_point.valid && command.control) {
       if (last_command_valid) {
@@ -142,6 +143,57 @@ int main(int argc, char * argv[])
       tools::delta_time(tracker_start, yolo_start) * 1e3,
       tools::delta_time(aimer_start, tracker_start) * 1e3,
       tools::delta_time(finish, aimer_start) * 1e3);
+
+    // 绘制控制命令信息
+    tools::draw_text(
+      img,
+      fmt::format(
+        "command is {},{:.2f},{:.2f},shoot:{}", command.control, command.yaw * 57.3,
+        command.pitch * 57.3, command.shoot),
+      {10, 60}, {154, 50, 205});
+
+    // 绘制云台姿态信息
+    tools::draw_text(
+      img,
+      fmt::format(
+        "gimbal yaw{:.2f}", (tools::eulers(gimbal_q.toRotationMatrix(), 2, 1, 0) * 57.3)[0]),
+      {10, 90}, {255, 255, 255});
+
+    // 绘制帧率信息
+    static auto last_time = std::chrono::steady_clock::now();
+    auto current_time = std::chrono::steady_clock::now();
+    auto dt = tools::delta_time(current_time, last_time);
+    last_time = current_time;
+    if (dt > 0) {
+      tools::draw_text(
+        img, fmt::format("FPS: {:.1f}", 1.0 / dt), {10, 30}, {0, 255, 0});
+    }
+
+    // 绘制目标重投影（如果存在目标）
+    if (!targets.empty()) {
+      auto target = targets.front();
+
+      // 绘制重投影装甲板位置（绿色）
+      std::vector<Eigen::Vector4d> armor_xyza_list = target.armor_xyza_list();
+      for (const Eigen::Vector4d & xyza : armor_xyza_list) {
+        auto image_points =
+          solver.reproject_armor(xyza.head(3), xyza[3], target.armor_type, target.name);
+        tools::draw_points(img, image_points, {0, 255, 0});
+      }
+
+      // 绘制aimer瞄准位置（红色）
+      auto aim_point = aimer.debug_aim_point;
+      Eigen::Vector4d aim_xyza = aim_point.xyza;
+      auto image_points =
+        solver.reproject_armor(aim_xyza.head(3), aim_xyza[3], target.armor_type, target.name);
+      if (aim_point.valid) tools::draw_points(img, image_points, {0, 0, 255});
+    }
+
+    // 显示图像（可选缩小尺寸以提高显示性能）
+    cv::resize(img, img, {}, 0.5, 0.5);
+    cv::imshow("hero_auto_aim", img);
+    auto key = cv::waitKey(1);
+    if (key == 'q') break;
 
     frame_count++;
   }
