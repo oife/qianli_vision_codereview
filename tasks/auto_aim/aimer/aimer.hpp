@@ -4,6 +4,7 @@
 #include <Eigen/Dense>
 #include <chrono>
 #include <list>
+#include <limits>
 
 #include "io/cboard/cboard.hpp"
 #include "io/cboard/command.hpp"
@@ -14,8 +15,16 @@ namespace auto_aim
 
 struct AimPoint
 {
-  bool valid;
-  Eigen::Vector4d xyza;
+  bool valid = false;
+  Eigen::Vector4d xyza = Eigen::Vector4d::Zero();
+  Eigen::Vector3d center_xyz = Eigen::Vector3d::Zero();
+  double center_yaw = 0.0;
+  double fly_time = std::numeric_limits<double>::infinity();
+  double align_time = std::numeric_limits<double>::infinity();
+  double time_error = std::numeric_limits<double>::infinity();
+  double centerline_error = std::numeric_limits<double>::infinity();
+  int locked_id = 0;
+  bool center_aim = false;
 };
 
 class Aimer
@@ -41,9 +50,11 @@ private:
   double high_speed_delay_time_;
   double low_speed_delay_time_;
   double decision_speed_;
+  double center_aim_speed_thresh_;
   double default_bullet_speed_;
 
   AimPoint choose_aim_point(Target target);
+  AimPoint choose_center_aim_point(const Target & target, double bullet_speed);
 };
 
 }  // namespace auto_aim

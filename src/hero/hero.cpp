@@ -28,7 +28,9 @@ namespace hero_shoot
 constexpr double SHOOT_YAW_THRESH = 0.6 / 57.3;    // rad
 constexpr double SHOOT_PITCH_THRESH = 0.6 / 57.3;  // rad
 constexpr int SHOOT_STABLE_FRAMES = 3;             // 连续稳定帧数
-constexpr double SHOOT_COOLDOWN_SEC = 1;         // 冷却，避免过快连发
+constexpr double SHOOT_COOLDOWN_SEC = 1;           // 冷却，避免过快连发
+constexpr double SHOOT_ALIGN_TIME_THRESH_SEC = 0.03;
+constexpr double SHOOT_CENTERLINE_THRESH = 2.0 / 57.3;
 }  // namespace hero_shoot
 
 int main(int argc, char * argv[])
@@ -103,10 +105,16 @@ int main(int argc, char * argv[])
     command.shoot = false;
     if (!targets.empty() && aimer.debug_aim_point.valid && command.control) {
       if (last_command_valid) {
-        double ye = std::abs(command.yaw - last_command.yaw);
+        double ye = std::abs(tools::limit_rad(command.yaw - last_command.yaw));
         double pe = std::abs(command.pitch - last_command.pitch);
+        bool aligned = true;
+        if (aimer.debug_aim_point.center_aim) {
+          aligned =
+            aimer.debug_aim_point.time_error < hero_shoot::SHOOT_ALIGN_TIME_THRESH_SEC &&
+            aimer.debug_aim_point.centerline_error < hero_shoot::SHOOT_CENTERLINE_THRESH;
+        }
         bool stable = (ye < hero_shoot::SHOOT_YAW_THRESH) && (pe < hero_shoot::SHOOT_PITCH_THRESH);
-        stable_count = stable ? (stable_count + 1) : 0;
+        stable_count = (stable && aligned) ? (stable_count + 1) : 0;
 
         auto now = std::chrono::steady_clock::now();
         double since = tools::delta_time(now, last_shoot_time);
@@ -132,9 +140,10 @@ int main(int argc, char * argv[])
 
     // 打印command到日志
     tools::logger()->info(
-      "[Command] control: {}, shoot: {}, yaw: {:.4f} rad ({:.2f} deg), pitch: {:.4f} rad ({:.2f} deg)",
+      "[Command] control: {}, shoot: {}, yaw: {:.4f} rad ({:.2f} deg), pitch: {:.4f} rad ({:.2f} deg), center_aim: {}, terr: {:.1f} ms, cerr: {:.2f} deg",
       command.control, command.shoot, command.yaw, command.yaw * 57.3, command.pitch,
-      command.pitch * 57.3);
+      command.pitch * 57.3, aimer.debug_aim_point.center_aim,
+      aimer.debug_aim_point.time_error * 1e3, aimer.debug_aim_point.centerline_error * 57.3);
 
     auto finish = std::chrono::steady_clock::now();
     tools::logger()->info(

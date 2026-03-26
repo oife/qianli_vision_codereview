@@ -62,7 +62,8 @@ yaw_offset: 0 # degree 0
 pitch_offset: -1 # degree 0
 comming_angle: 55 # degree
 leaving_angle: 10 # degree
-decision_speed: 7 # rad/s
+decision_speed: 3.5 # rad/s
+center_aim_speed_thresh: 3.5 # rad/s，超过该转速时只瞄准旋转中心，并等待装甲板转正再开火
 high_speed_delay_time: 0.16 # s
 low_speed_delay_time: 0.16 # s planner use this value（未配置左右时作为默认值）
 # 识别到目标水平平移方向后，分别使用不同的延迟补偿（单位：s）

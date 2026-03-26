@@ -24,6 +24,9 @@ Aimer::Aimer(const std::string & config_path)
   high_speed_delay_time_ = yaml["high_speed_delay_time"].as<double>();
   low_speed_delay_time_ = yaml["low_speed_delay_time"].as<double>();
   decision_speed_ = yaml["decision_speed"].as<double>();
+  center_aim_speed_thresh_ = yaml["center_aim_speed_thresh"].IsDefined()
+                               ? yaml["center_aim_speed_thresh"].as<double>()
+                               : std::numeric_limits<double>::infinity();
   default_bullet_speed_ = yaml["default_bullet_speed"].as<double>();
   if (yaml["left_yaw_offset"].IsDefined() && yaml["right_yaw_offset"].IsDefined()) {
     left_yaw_offset_ = yaml["left_yaw_offset"].as<double>() / 57.3;    // degree to rad
@@ -36,12 +39,12 @@ io::Command Aimer::aim(
   std::list<Target> targets, std::chrono::steady_clock::time_point timestamp, double bullet_speed,
   bool to_now)
 {
+  debug_aim_point = {};
   if (targets.empty()) return {false, false, 0, 0};
   auto target = targets.front();
 
-  auto ekf = target.ekf();
   double delay_time =
-    target.ekf_x()[7] > decision_speed_ ? high_speed_delay_time_ : low_speed_delay_time_;
+    std::abs(target.ekf_x()[7]) > decision_speed_ ? high_speed_delay_time_ : low_speed_delay_time_;
 
   if (bullet_speed < 9) bullet_speed = default_bullet_speed_;
 
@@ -61,7 +64,9 @@ io::Command Aimer::aim(
     target.predict(future);
   }
 
-  auto aim_point0 = choose_aim_point(target);
+  const bool use_center_aim =
+    std::isfinite(center_aim_speed_thresh_) && std::abs(target.ekf_x()[7]) > center_aim_speed_thresh_;
+  auto aim_point0 = use_center_aim ? choose_center_aim_point(target, bullet_speed) : choose_aim_point(target);
   debug_aim_point = aim_point0;
   if (!aim_point0.valid) {
     // tools::logger()->debug("Invalid aim_point0.");
@@ -78,8 +83,17 @@ io::Command Aimer::aim(
     return {false, false, 0, 0};
   }
 
+  if (use_center_aim) {
+    debug_aim_point.fly_time = trajectory0.fly_time;
+    if (std::isfinite(debug_aim_point.align_time)) {
+      debug_aim_point.time_error = std::abs(debug_aim_point.fly_time - debug_aim_point.align_time);
+    }
+    double yaw = debug_aim_point.center_yaw + yaw_offset_;
+    double pitch = trajectory0.pitch + pitch_offset_;
+    return {true, false, yaw, pitch};
+  }
+
   // 迭代求解飞行时间 (最多10次，收敛条件：相邻两次fly_time差 <0.001)
-  bool converged = false;
   double prev_fly_time = trajectory0.fly_time;
   tools::Trajectory current_traj = trajectory0;
   std::vector<Target> iteration_target(10, target);  // 创建10个目标副本用于迭代预测
@@ -112,7 +126,6 @@ io::Command Aimer::aim(
 
     // 检查收敛条件
     if (std::abs(current_traj.fly_time - prev_fly_time) < 0.001) {
-      converged = true;
       break;
     }
     prev_fly_time = current_traj.fly_time;
@@ -248,6 +261,78 @@ AimPoint Aimer::choose_aim_point(Target target)
 
   // 不应到达这里
   return {false, armor_xyza_list[0]};
+}
+
+AimPoint Aimer::choose_center_aim_point(const Target & target, double bullet_speed)
+{
+  auto armor_xyza_list = target.armor_xyza_list();
+  if (armor_xyza_list.empty()) return {};
+
+  const auto ekf_x = target.ekf_x();
+  const double w = ekf_x[7];
+  const double center_yaw0 = std::atan2(ekf_x[2], ekf_x[0]);
+  constexpr double MAX_ALIGN_TIME = 1.5;
+  constexpr int MAX_TURNS = 2;
+
+  bool found = false;
+  double best_score = std::numeric_limits<double>::infinity();
+  AimPoint best;
+
+  auto consider = [&](const Target & predicted, int id, double t_align) {
+    auto predicted_list = predicted.armor_xyza_list();
+    if (id < 0 || id >= static_cast<int>(predicted_list.size())) return;
+
+    const auto & xyza = predicted_list[id];
+    if (!finite4(xyza)) return;
+
+    Eigen::Vector3d xyz = xyza.head(3);
+    double d = std::sqrt(xyz.x() * xyz.x() + xyz.y() * xyz.y());
+    tools::Trajectory traj(bullet_speed, d, xyz.z());
+    if (traj.unsolvable) return;
+
+    const auto predicted_x = predicted.ekf_x();
+    Eigen::Vector3d center_xyz(predicted_x[0], predicted_x[2], predicted_x[4]);
+    double center_yaw = std::atan2(center_xyz.y(), center_xyz.x());
+    double armor_yaw = std::atan2(xyz.y(), xyz.x());
+    double centerline_error = std::abs(tools::limit_rad(armor_yaw - center_yaw));
+    double time_error = std::abs(traj.fly_time - t_align);
+    double w_abs = std::max(std::abs(w), 1e-3);
+    double score = time_error + centerline_error / w_abs;
+
+    if (!found || score < best_score) {
+      found = true;
+      best_score = score;
+      best.valid = true;
+      best.xyza = xyza;
+      best.center_xyz = center_xyz;
+      best.center_yaw = center_yaw;
+      best.fly_time = traj.fly_time;
+      best.align_time = t_align;
+      best.time_error = time_error;
+      best.centerline_error = centerline_error;
+      best.locked_id = id;
+      best.center_aim = true;
+    }
+  };
+
+  if (std::abs(w) < 1e-3) return {};
+
+  const double period = 2.0 * CV_PI / std::abs(w);
+  for (int i = 0; i < static_cast<int>(armor_xyza_list.size()); ++i) {
+    double delta = tools::limit_rad(armor_xyza_list[i][3] - center_yaw0);
+    double first_t = time_to_centerline(delta, w);
+    if (!std::isfinite(first_t)) continue;
+
+    for (int turn = 0; turn <= MAX_TURNS; ++turn) {
+      double t_align = first_t + turn * period;
+      if (t_align < 0.0 || t_align > MAX_ALIGN_TIME) continue;
+      auto predicted = target;
+      predicted.predict(t_align);
+      consider(predicted, i, t_align);
+    }
+  }
+
+  return best;
 }
 
 }  // namespace auto_aim
